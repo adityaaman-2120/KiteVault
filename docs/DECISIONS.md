@@ -197,3 +197,44 @@ Typing the master password correctly (`recordPasswordUnlock`, called from `unloc
 - **It does not protect a copy of the vault file.** The Keystore key never leaves the phone, so the blob is useless elsewhere, but a stolen copy of `vault.kvlt` is still only protected by the master password and Argon2id.
 - **Rooted or compromised phones** can hook the app and read the key after a legitimate unlock. Keystore hardware protects the key at rest, not from code running inside our own process.
 - **Verified so far:** the Kotlin module compiles under Gradle against Expo SDK 58 and `BiometricPolicyTest.kt` passes (7 tests); the JavaScript side is covered by unit tests against a fake native module. **Not verified:** anything that needs real hardware, namely the system fingerprint dialog, StrongBox versus TEE key creation, invalidation after enrolling a new fingerprint, and the Expo ByteArray bridge. Try these by hand on at least one phone before relying on the feature.
+
+---
+
+### 2026-10-21: Android protections (screenshots, clipboard, backup, root warning)
+
+**Screenshots, recording and the recent-apps preview** (`expo-screen-capture`, `src/features/privacy`)
+
+- `preventScreenCaptureAsync` sets Android's `FLAG_SECURE` on the app window. That one flag blocks screenshots, blocks screen recording and casting to non-secure displays, and blanks the thumbnail in the recent-apps list.
+- It is switched on at startup, before the first screen, so there is no unprotected moment. If the Android activity is not ready yet, the call is retried for about two seconds.
+- Setting **Allow screenshots** (default **off**) only affects the _unlocked_ vault. **Deliberate addition:** the create-vault and unlock screens are always protected, even if screenshots are allowed, because a screenshot could capture a master password revealed with "Show". Locking turns protection back on immediately.
+- `FLAG_SECURE` cannot stop someone photographing the screen with another camera, and a rooted phone can bypass it.
+
+**Clipboard** (`expo-clipboard`, `src/features/clipboard`)
+
+- `copySecret(value)` copies, shows the Android toast "Copied, clears in 30 s" (or 15 / 60 s; "Never" says the value stays), then clears after the delay **only if the clipboard still equals what we copied**. Delay setting: 15 s, 30 s (default), 60 s, Never.
+- Android 10+ lets only the foreground app read the clipboard. If the delay ends while the app is in the background we cannot check, so we do nothing and finish the check the moment the app returns to the foreground (this uses clock times because JS timers can be paused in the background).
+- If the clipboard cannot be read we leave it alone rather than wiping something the user may need.
+- **Limits:** if the app is killed before the timer ends, nothing is left running to clear the clipboard. The copied value is held in memory until it is cleared. We do not store a hash of it, because a stored hash of a weak password could be guessed offline. Android 13+ shows a preview of the copied text in its clipboard pop-up; `expo-clipboard` has no option to mark the clip as sensitive (`EXTRA_IS_SENSITIVE`), so the preview can show a copied password. Marking it sensitive would need a small addition to our Kotlin module; do this before shipping.
+- No screen has copy buttons yet (the entry screen is still a placeholder). `CopyButton` and `copySecret` are ready to use there.
+
+**Backup and device transfer** (`app.json` + `plugins/withNoBackup.js`)
+
+Three settings work together, and a unit test fails if any is removed:
+
+1. `android.allowBackup: false` in `app.json`. This is the master switch.
+2. `android:dataExtractionRules="@xml/kitevault_data_extraction_rules"` (Android 12+). Excludes every storage area, normal and device-protected, from both `<cloud-backup>` and `<device-transfer>`.
+3. `android:fullBackupContent="@xml/kitevault_backup_rules"` (Android 11 and older). Excludes every storage area.
+
+The plugin adds the two attributes to the manifest and writes the two XML files into `android/app/src/main/res/xml/` on every prebuild / EAS build. They are not edited by hand, because `android/` is generated.
+
+How to verify (also in the hand-off message): check the merged manifest of the built app, then ask the phone.
+
+**Permissions** (found while checking the merged manifest)
+
+The default Expo template added `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `SYSTEM_ALERT_WINDOW`, and `expo-screen-capture` added `READ_MEDIA_IMAGES`. A password manager has no use for them, so they are blocked in `app.json` (`android.blockedPermissions`). The release app now requests only: `INTERNET`, `USE_BIOMETRIC`, `USE_FINGERPRINT`, `VIBRATE` and `DETECT_SCREEN_CAPTURE` (a harmless normal permission added by the screen-capture library, unused). `INTERNET` is still there for the future Drive backup and breach check (CLAUDE.md rule 3); until those exist it could be blocked too, but debug builds need it for the development server. Debug builds also add network-state and overlay permissions for the dev tools; release builds do not.
+
+**Root warning** (`jail-monkey` 3.0.0, `src/features/security`)
+
+- Chosen over `expo-device`'s `isRootedExperimentalAsync`, which only checks for the `test-keys` build tag and `/system/xbin/su`; that misses Magisk and most modern roots. `jail-monkey` (MIT, updated April 2026) runs RootBeer's checks: su binaries, Magisk, root-manager apps, dangerous system properties, writable system paths and test-keys. It needs no extra permission and makes no network calls (checked in its source). `freeRASP` was rejected because it reports to a vendor service, which conflicts with the no-network rule.
+- A banner appears above every screen on a device that looks rooted. It warns only; it never blocks and can be dismissed for the session.
+- **Limits:** root hiding (Magisk DenyList, Shamiko and similar) can defeat these checks, so "no warning" does not mean "not rooted". If the library cannot run we show nothing rather than a false alarm. Jail-monkey also pins an old RootBeer (0.1.1).

@@ -2,6 +2,7 @@ import { Text } from 'react-native';
 
 import { Button, Card, ChoiceGroup, ScreenContainer } from '@/components';
 import { BiometricSettingsCard } from '@/features/biometric/BiometricSettingsCard';
+import { PrivacySettingsCard } from '@/features/privacy/PrivacySettingsCard';
 import { useTheme } from '@/theme';
 import { useVaultStore } from '@/vault';
 
@@ -36,6 +37,7 @@ export function SettingsForm() {
         </Text>
       </Card>
       <BiometricSettingsCard />
+      <PrivacySettingsCard />
       <Button title="Lock now" variant="secondary" onPress={lock} />
     </ScreenContainer>
   );

@@ -78,10 +78,24 @@ describe('useSettingsStore', () => {
   test('the settings file holds only the preferences and no secrets', async () => {
     await useSettingsStore.getState().update({ backgroundLockSeconds: 60 });
     expect(Object.keys((await readJsonFile(SETTINGS_FILE)) as object).sort()).toEqual([
+      'allowScreenshots',
       'backgroundLockSeconds',
       'biometricPromptDismissed',
+      'clipboardClearSeconds',
       'inactivityLockMinutes',
     ]);
+  });
+
+  test('screenshots default to blocked and the clipboard to 30 s; bad values fall back', () => {
+    expect(DEFAULT_APP_SETTINGS).toMatchObject({
+      allowScreenshots: false,
+      clipboardClearSeconds: 30,
+    });
+    expect(parseAppSettings({ allowScreenshots: 'yes', clipboardClearSeconds: 45 })).toMatchObject({
+      allowScreenshots: false,
+      clipboardClearSeconds: 30,
+    });
+    expect(parseAppSettings({ clipboardClearSeconds: 0 }).clipboardClearSeconds).toBe(0);
   });
 
   test('remembers the biometric "do not ask again" choice', async () => {

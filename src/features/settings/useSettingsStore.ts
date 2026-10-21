@@ -22,13 +22,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   async update(changes) {
-    const { backgroundLockSeconds, inactivityLockMinutes, biometricPromptDismissed } = get();
-    const next = parseAppSettings({
-      backgroundLockSeconds,
-      inactivityLockMinutes,
-      biometricPromptDismissed,
-      ...changes,
-    });
+    // parseAppSettings keeps only the known setting fields, so the store's functions are dropped.
+    const next = parseAppSettings({ ...get(), ...changes });
     set(next); // apply right away; saving can fail without breaking the session
     await writeJsonFile(SETTINGS_FILE, next);
   },

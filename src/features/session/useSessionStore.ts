@@ -7,7 +7,7 @@ type SessionState = {
   setStatus: (status: VaultStatus) => void;
 };
 
-// Hardcoded for now; real vault state comes in a later step.
+// Which screens are reachable. Set by the vault store (create / unlock / lock) and read at startup.
 export const useSessionStore = create<SessionState>((set) => ({
   status: 'no-vault',
   setStatus: (status) => set({ status }),

@@ -24,7 +24,7 @@ export type AutoLock = {
 };
 
 export function createAutoLock(deps: AutoLockDeps): AutoLock {
-  const now = deps.now ?? Date.now;
+  const now = deps.now ?? (() => Date.now());
   const setTimer = deps.setTimer ?? ((callback, ms) => setTimeout(callback, ms));
   const clearTimer = deps.clearTimer ?? ((timer) => clearTimeout(timer as number));
 

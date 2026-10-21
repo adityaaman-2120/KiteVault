@@ -5,6 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { useAutoLock } from '@/features/lock/useAutoLock';
+import {
+  protectScreenCaptureAtStartup,
+  useScreenProtection,
+} from '@/features/privacy/screenProtection';
+import { RootWarningBanner } from '@/features/security/RootWarningBanner';
 import { useSessionStore } from '@/features/session/useSessionStore';
 import { useSettingsStore } from '@/features/settings/useSettingsStore';
 import { useTheme } from '@/theme';
@@ -12,6 +17,7 @@ import { markActivity } from '@/utils/activity';
 import { useVaultStore } from '@/vault';
 
 SplashScreen.preventAutoHideAsync();
+protectScreenCaptureAtStartup(); // no screenshots or recents preview from the first frame
 
 export default function RootLayout() {
   const router = useRouter();
@@ -21,6 +27,7 @@ export default function RootLayout() {
   const previousStatus = useRef(status);
 
   useAutoLock();
+  useScreenProtection();
 
   // Load preferences and find out whether a vault already exists before choosing the first screen.
   useEffect(() => {
@@ -46,6 +53,7 @@ export default function RootLayout() {
     // Observes touches (without handling them) so inactivity can be measured.
     <View style={{ flex: 1 }} onTouchStart={markActivity}>
       <StatusBar style="auto" />
+      <RootWarningBanner />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.background },
