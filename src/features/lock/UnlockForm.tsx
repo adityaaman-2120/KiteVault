@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Button, ScreenContainer, TextField } from '@/components';
 import { unlockWithBiometric } from '@/features/biometric/biometricService';
@@ -169,6 +169,17 @@ export function UnlockForm() {
           {describeReauth()} Biometric unlock will work again afterwards.
         </Text>
       ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Forgot master password?"
+        onPress={() => router.push('/recover')}
+        disabled={busy}
+        hitSlop={8}
+        style={{ alignItems: 'center', padding: spacing.sm }}
+      >
+        <Text style={[typography.label, { color: colors.primary }]}>Forgot master password?</Text>
+      </Pressable>
     </ScreenContainer>
   );
 }

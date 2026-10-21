@@ -10,4 +10,5 @@ export {
   type KdfParams,
 } from './kdf';
 export { generateRandomBytes } from './random';
+export { sha256 } from './sha256';
 export { wipe } from './wipe';

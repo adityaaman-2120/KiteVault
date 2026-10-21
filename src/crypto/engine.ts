@@ -5,5 +5,6 @@ export {
   Buffer,
   createCipheriv,
   createDecipheriv,
+  createHash,
   randomBytes,
 } from 'react-native-quick-crypto';

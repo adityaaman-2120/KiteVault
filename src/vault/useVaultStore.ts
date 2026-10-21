@@ -8,6 +8,7 @@ import {
   changeMasterPassword,
   createVault,
   lockVault,
+  recoverVault,
   saveVault,
   unlockVault,
   unlockVaultWithKey,
@@ -23,6 +24,8 @@ type VaultState = {
   unlock: (masterPassword: string) => Promise<void>;
   // Unlocks with the vault key from biometrics. Takes ownership of the bytes.
   unlockWithKey: (vaultKey: Uint8Array) => Promise<void>;
+  // "Forgot master password": opens the vault with a recovery key and sets a new master password.
+  recover: (recoveryKey: string, newPassword: string) => Promise<void>;
   lock: () => void;
   // Replaces the vault contents and writes them to disk.
   save: (data: VaultData) => Promise<void>;
@@ -59,6 +62,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   async unlockWithKey(vaultKey) {
     const data = await unlockVaultWithKey(vaultKey);
+    set({ data });
+    useSessionStore.getState().setStatus('unlocked');
+  },
+
+  async recover(recoveryKey, newPassword) {
+    const data = await recoverVault(recoveryKey, newPassword);
     set({ data });
     useSessionStore.getState().setStatus('unlocked');
   },

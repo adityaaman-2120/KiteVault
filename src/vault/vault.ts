@@ -23,8 +23,15 @@ import {
 } from '@/storage';
 
 import { VaultError } from './errors';
-import { decodeVaultFile, encodeVaultFile, FORMAT_VERSION, isWellFormedVaultFile } from './format';
+import {
+  decodeVaultFile,
+  encodeVaultFile,
+  FORMAT_VERSION,
+  isWellFormedVaultFile,
+  type VaultHeader,
+} from './format';
 import { parseVaultData } from './parseVaultData';
+import { parseRecoveryKey, RecoveryKeyFormatError, RECOVERY_KEY_BYTES } from './recoveryKey';
 import { createEmptyVaultData, type VaultData } from './types';
 
 type Session = {
@@ -60,6 +67,25 @@ const wrongPassword = () =>
 function requireSession(): Session {
   if (!session) throw new VaultError('LOCKED', 'The vault is locked.');
   return session;
+}
+
+// Throws WRONG_PASSWORD unless `password` unwraps to the vault key that is in use.
+async function checkPassword(current: Session, password: string): Promise<void> {
+  const key = await deriveKeyFromPassword(password, current.header.salt, current.header.kdf).catch(
+    () => {
+      throw wrongPassword();
+    },
+  );
+  try {
+    const unwrapped = unwrapKey(key, current.header.wrappedKey);
+    const same = bytesEqual(unwrapped, current.vaultKey);
+    wipe(unwrapped);
+    if (!same) throw wrongPassword();
+  } catch {
+    throw wrongPassword();
+  } finally {
+    wipe(key);
+  }
 }
 
 // Drops references to decrypted values as early as possible. Strings cannot be zeroed; see
@@ -258,23 +284,7 @@ export function changeMasterPassword(
       throw new VaultError('INVALID_INPUT', 'Master password must not be empty.');
     }
 
-    const oldKey = await deriveKeyFromPassword(
-      oldPassword,
-      current.header.salt,
-      current.header.kdf,
-    ).catch(() => {
-      throw wrongPassword();
-    });
-    try {
-      const unwrapped = unwrapKey(oldKey, current.header.wrappedKey);
-      const same = bytesEqual(unwrapped, current.vaultKey);
-      wipe(unwrapped);
-      if (!same) throw wrongPassword();
-    } catch {
-      throw wrongPassword();
-    } finally {
-      wipe(oldKey);
-    }
+    await checkPassword(current, oldPassword);
 
     const kdf = options.kdfParams ?? DEFAULT_KDF_PARAMS;
     const salt = generateRandomBytes(SALT_LENGTH);
@@ -285,11 +295,15 @@ export function changeMasterPassword(
       // The vault may have been locked while the new key was being derived.
       if (session !== current) throw new VaultError('LOCKED', 'The vault is locked.');
       const keyToWrap = newVaultKey ?? current.vaultKey;
-      const header = {
+      const header: VaultHeader = {
         formatVersion: FORMAT_VERSION,
         kdf,
         salt,
         wrappedKey: wrapKey(newPasswordKey, keyToWrap),
+        // The recovery key wraps the vault key, which has not changed, so it stays valid. If the
+        // vault key is replaced it cannot be re-wrapped (the recovery key is not stored), so the
+        // entry is dropped and the user has to make a new recovery key.
+        ...(current.header.recovery && !newVaultKey ? { recovery: current.header.recovery } : {}),
       };
       const body = newVaultKey ? sealBody(newVaultKey, current.data) : current.body;
       await saveVaultFile(encodeVaultFile(header, body)); // atomic: old file or new file, never half
@@ -320,5 +334,145 @@ export function eraseVault(): Promise<void> {
     if (vaultFilesExist())
       throw new VaultError('CORRUPTED', 'The vault file could not be deleted.');
     discardSession();
+  });
+}
+
+// --- recovery key ------------------------------------------------------------------------------
+//
+// A recovery key is 256 random bits that wrap the SAME vault key the master password wraps, as a
+// second entry in the file header. Anyone who has it can open the vault, so it is only ever
+// created on request, shown once, and never stored by the app. The encrypted body is never
+// touched by any of this: only the header changes.
+
+export type RecoveryInfo = { exists: boolean; createdAt?: number };
+
+const recoveryInfoOf = (header: VaultHeader): RecoveryInfo =>
+  header.recovery ? { exists: true, createdAt: header.recovery.createdAt } : { exists: false };
+
+// Checks the master password without changing anything (used before showing a recovery key).
+export function verifyMasterPassword(password: string): Promise<void> {
+  return serialized(async () => {
+    await checkPassword(requireSession(), password);
+  });
+}
+
+// Whether the vault has a recovery key. Works while locked (the header is readable without a key).
+// Returns null when there is no vault.
+export function getRecoveryInfo(): Promise<RecoveryInfo | null> {
+  return serialized(async () => {
+    if (session) return recoveryInfoOf(session.header);
+    const bytes = await loadVaultFile(isWellFormedVaultFile);
+    return bytes ? recoveryInfoOf(decodeVaultFile(bytes).header) : null;
+  });
+}
+
+async function writeHeader(current: Session, header: VaultHeader): Promise<void> {
+  // The body is written back exactly as it is: nothing is re-encrypted.
+  await saveVaultFile(encodeVaultFile(header, current.body));
+  if (session === current) current.header = header;
+}
+
+// Stores a new recovery key (replacing any earlier one, which stops working). The caller made the
+// key, has shown it to the user, and must wipe its own copy afterwards.
+export function setRecoveryKey(
+  recoveryKey: Uint8Array,
+  now: () => number = Date.now,
+): Promise<void> {
+  return serialized(async () => {
+    const current = requireSession();
+    if (recoveryKey.length !== RECOVERY_KEY_BYTES) {
+      throw new VaultError('INVALID_INPUT', 'A recovery key is 32 bytes.');
+    }
+    await writeHeader(current, {
+      ...current.header,
+      recovery: { wrappedKey: wrapKey(recoveryKey, current.vaultKey), createdAt: now() },
+    });
+  });
+}
+
+// Removes the recovery key: the vault can then only be opened with the master password.
+export function removeRecoveryKey(): Promise<void> {
+  return serialized(async () => {
+    const current = requireSession();
+    if (!current.header.recovery) return;
+    const { recovery: _removed, ...rest } = current.header;
+    await writeHeader(current, rest);
+  });
+}
+
+// "Forgot master password": opens the vault with the typed recovery key and protects it with a
+// new master password. Throws:
+//   INVALID_RECOVERY_KEY  the text has a typo (wrong length, bad character, checksum mismatch)
+//   NO_RECOVERY_KEY       this vault never had one (or it was removed)
+//   WRONG_RECOVERY_KEY    well-formed, but not the key for this vault (for example a replaced one)
+// The vault key stays the same, the recovery key keeps working, and the file is replaced
+// atomically, so a crash leaves the old or the new master password working, never neither.
+export function recoverVault(
+  recoveryKeyText: string,
+  newPassword: string,
+  options: Options = {},
+): Promise<VaultData> {
+  return serialized(async () => {
+    if (newPassword.length === 0) {
+      throw new VaultError('INVALID_INPUT', 'Master password must not be empty.');
+    }
+
+    let recoveryKey: Uint8Array;
+    try {
+      recoveryKey = parseRecoveryKey(recoveryKeyText);
+    } catch (error) {
+      if (error instanceof RecoveryKeyFormatError) {
+        throw new VaultError('INVALID_RECOVERY_KEY', 'The recovery key has a typing mistake.');
+      }
+      throw error;
+    }
+
+    let vaultKey: Uint8Array | undefined;
+    let plaintext: Uint8Array | undefined;
+    let passwordKey: Uint8Array | undefined;
+    try {
+      const bytes = await loadVaultFile(isWellFormedVaultFile);
+      if (!bytes) throw new VaultError('NO_VAULT', 'There is no vault on this device.');
+      const { header, body } = decodeVaultFile(bytes);
+      if (!header.recovery) {
+        throw new VaultError('NO_RECOVERY_KEY', 'This vault has no recovery key.');
+      }
+
+      try {
+        vaultKey = unwrapKey(recoveryKey, header.recovery.wrappedKey);
+      } catch {
+        throw new VaultError('WRONG_RECOVERY_KEY', 'This recovery key does not open this vault.');
+      }
+      // Prove the key really opens the data before changing anything.
+      try {
+        plaintext = decrypt(vaultKey, body);
+      } catch {
+        throw new VaultError('CORRUPTED', 'The vault file is damaged.');
+      }
+      const data = parseVaultData(utf8Decode(plaintext));
+
+      const kdf = options.kdfParams ?? DEFAULT_KDF_PARAMS;
+      const salt = generateRandomBytes(SALT_LENGTH);
+      passwordKey = await deriveKeyFromPassword(newPassword, salt, kdf);
+      const newHeader: VaultHeader = {
+        formatVersion: FORMAT_VERSION,
+        kdf,
+        salt,
+        wrappedKey: wrapKey(passwordKey, vaultKey),
+        recovery: header.recovery,
+      };
+      await saveVaultFile(encodeVaultFile(newHeader, body));
+
+      discardSession();
+      session = { vaultKey, header: newHeader, data, body };
+      return data;
+    } catch (error) {
+      wipe(vaultKey);
+      throw error instanceof VaultError
+        ? error
+        : new VaultError('CORRUPTED', 'The vault file is damaged.');
+    } finally {
+      wipe(recoveryKey, plaintext, passwordKey);
+    }
   });
 }

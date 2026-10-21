@@ -23,11 +23,19 @@ const MAX_HEADER_BYTES = 4096;
 const WRAPPED_KEY_LENGTH = IV_LENGTH + KEY_LENGTH + TAG_LENGTH;
 const MIN_BODY_LENGTH = IV_LENGTH + TAG_LENGTH;
 
+// An optional second way to unwrap the vault key: with a recovery key instead of the master
+// password (see recoveryKey.ts). Readers that do not know the field ignore it.
+export type RecoveryEntry = {
+  wrappedKey: Uint8Array; // the vault key wrapped by the 32-byte recovery key
+  createdAt: number; // epoch ms
+};
+
 export type VaultHeader = {
   formatVersion: number;
   kdf: KdfParams;
   salt: Uint8Array;
   wrappedKey: Uint8Array;
+  recovery?: RecoveryEntry;
 };
 
 const corrupted = () => new VaultError('CORRUPTED', 'The vault file is damaged.');
@@ -39,6 +47,14 @@ export function encodeVaultFile(header: VaultHeader, body: Uint8Array): Uint8Arr
       kdf: header.kdf,
       salt: toBase64(header.salt),
       wrappedKey: toBase64(header.wrappedKey),
+      ...(header.recovery
+        ? {
+            recovery: {
+              wrappedKey: toBase64(header.recovery.wrappedKey),
+              createdAt: header.recovery.createdAt,
+            },
+          }
+        : {}),
     }),
   );
   const out = new Uint8Array(MAGIC.length + 2 + headerBytes.length + body.length);
@@ -74,6 +90,19 @@ function parseKdf(value: unknown): KdfParams {
   };
 }
 
+function parseRecovery(value: unknown): RecoveryEntry {
+  if (
+    !isRecord(value) ||
+    typeof value.wrappedKey !== 'string' ||
+    !Number.isFinite(value.createdAt)
+  ) {
+    throw corrupted();
+  }
+  const wrappedKey = fromBase64(value.wrappedKey);
+  if (!wrappedKey || wrappedKey.length !== WRAPPED_KEY_LENGTH) throw corrupted();
+  return { wrappedKey, createdAt: value.createdAt as number };
+}
+
 // Throws VaultError('CORRUPTED') or ('UNSUPPORTED_VERSION'). Does not need any key.
 export function decodeVaultFile(bytes: Uint8Array): { header: VaultHeader; body: Uint8Array } {
   if (bytes.length < MAGIC.length + 2) throw corrupted();
@@ -107,8 +136,16 @@ export function decodeVaultFile(bytes: Uint8Array): { header: VaultHeader; body:
   if (!salt || salt.length < SALT_LENGTH) throw corrupted();
   if (!wrappedKey || wrappedKey.length !== WRAPPED_KEY_LENGTH) throw corrupted();
 
+  const header: VaultHeader = {
+    formatVersion: FORMAT_VERSION,
+    kdf: parseKdf(raw.kdf),
+    salt,
+    wrappedKey,
+  };
+  if (raw.recovery !== undefined) header.recovery = parseRecovery(raw.recovery);
+
   return {
-    header: { formatVersion: FORMAT_VERSION, kdf: parseKdf(raw.kdf), salt, wrappedKey },
+    header,
     body: Uint8Array.from(bytes.subarray(headerStart + headerLength)),
   };
 }

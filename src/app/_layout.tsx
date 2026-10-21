@@ -73,6 +73,7 @@ export default function RootLayout() {
         </Stack.Protected>
         <Stack.Protected guard={status === 'locked'}>
           <Stack.Screen name="unlock" options={{ headerShown: false }} />
+          <Stack.Screen name="recover" options={{ title: 'Recover vault' }} />
         </Stack.Protected>
         <Stack.Protected guard={status === 'unlocked'}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -82,6 +83,7 @@ export default function RootLayout() {
           <Stack.Screen name="trash" options={{ title: 'Trash' }} />
           <Stack.Screen name="folders" options={{ title: 'Folders' }} />
           <Stack.Screen name="change-password" options={{ title: 'Change master password' }} />
+          <Stack.Screen name="recovery-key" options={{ title: 'Recovery key' }} />
           <Stack.Screen name="about" options={{ title: 'About' }} />
           <Stack.Screen name="licenses" options={{ title: 'Open source licenses' }} />
         </Stack.Protected>

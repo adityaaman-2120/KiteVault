@@ -4,6 +4,9 @@ export type VaultErrorCode =
   | 'LOCKED'
   | 'WRONG_PASSWORD'
   | 'WRONG_KEY'
+  | 'INVALID_RECOVERY_KEY'
+  | 'NO_RECOVERY_KEY'
+  | 'WRONG_RECOVERY_KEY'
   | 'CORRUPTED'
   | 'UNSUPPORTED_VERSION'
   | 'INVALID_INPUT';

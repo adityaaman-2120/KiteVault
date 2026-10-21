@@ -7,6 +7,7 @@ import { BiometricSettingsCard } from '@/features/biometric/BiometricSettingsCar
 import { DataInfoCard } from '@/features/data/DataInfoCard';
 import { EraseVaultCard } from '@/features/data/EraseVaultCard';
 import { PrivacySettingsCard } from '@/features/privacy/PrivacySettingsCard';
+import { RecoveryKeyCard } from '@/features/recovery/RecoveryKeyCard';
 import { useTheme } from '@/theme';
 import { useVaultStore } from '@/vault';
 
@@ -53,6 +54,7 @@ export function SettingsForm() {
           Closing the app always locks the vault.
         </Text>
       </Card>
+      <RecoveryKeyCard />
       <BiometricSettingsCard />
       <PrivacySettingsCard />
       <Button title="Lock now" variant="secondary" onPress={lock} />

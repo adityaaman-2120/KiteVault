@@ -4,12 +4,18 @@ export {
   changeMasterPassword,
   createVault,
   eraseVault,
+  getRecoveryInfo,
   getVaultKeyCopy,
   isVaultUnlocked,
   lockVault,
+  recoverVault,
+  removeRecoveryKey,
   saveVault,
+  setRecoveryKey,
   unlockVault,
   unlockVaultWithKey,
+  verifyMasterPassword,
+  type RecoveryInfo,
   vaultExists,
 } from './vault';
 export {
@@ -24,3 +30,13 @@ export {
   type VaultData,
   type VaultSettings,
 } from './types';
+export {
+  countRecoveryCharacters,
+  formatRecoveryKey,
+  generateRecoveryKey,
+  normalizeRecoveryText,
+  parseRecoveryKey,
+  RECOVERY_GROUPS,
+  RECOVERY_KEY_CHARACTERS,
+  RecoveryKeyFormatError,
+} from './recoveryKey';

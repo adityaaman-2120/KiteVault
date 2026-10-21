@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/features/settings/useSettingsStore';
 import {
   protectScreenCaptureAtStartup,
   shouldBlockScreenCapture,
+  useForceScreenProtection,
   useScreenProtection,
 } from '../screenProtection';
 
@@ -115,5 +116,38 @@ describe('startup protection', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe('forced protection (recovery key screens)', () => {
+  test('blocks capture even when screenshots are allowed and the vault is unlocked', () => {
+    expect(shouldBlockScreenCapture('unlocked', true, true)).toBe(true);
+    expect(shouldBlockScreenCapture('unlocked', true, false)).toBe(false);
+    expect(shouldBlockScreenCapture('unlocked', true)).toBe(false);
+  });
+
+  test('the hook keeps capture blocked while such a screen is open, then follows the setting again', async () => {
+    useSessionStore.getState().setStatus('unlocked');
+    useSettingsStore.setState({ allowScreenshots: true });
+    await renderHook(() => useScreenProtection());
+    expect(allow).toHaveBeenCalledTimes(1);
+
+    const forced = await renderHook(() => useForceScreenProtection());
+    expect(prevent).toHaveBeenCalledTimes(1);
+
+    await forced.unmount();
+    expect(allow).toHaveBeenCalledTimes(2);
+  });
+
+  test('two such screens at once keep it blocked until both are gone', async () => {
+    useSessionStore.getState().setStatus('unlocked');
+    useSettingsStore.setState({ allowScreenshots: true });
+    await renderHook(() => useScreenProtection());
+    const a = await renderHook(() => useForceScreenProtection());
+    const b = await renderHook(() => useForceScreenProtection());
+    await a.unmount();
+    expect(allow).toHaveBeenCalledTimes(1); // still blocked: nothing new allowed
+    await b.unmount();
+    expect(allow).toHaveBeenCalledTimes(2);
   });
 });

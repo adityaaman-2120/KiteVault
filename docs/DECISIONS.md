@@ -89,10 +89,12 @@ Header JSON:
     "parallelism": 1
   },
   "salt": "<base64, 16 bytes>",
-  "wrappedKey": "<base64, 60 bytes = iv 12 | vault key 32 | tag 16>"
+  "wrappedKey": "<base64, 60 bytes = iv 12 | vault key 32 | tag 16>",
+  "recovery": { "wrappedKey": "<base64, 60 bytes>", "createdAt": 1766400000000 }
 }
 ```
 
+- `recovery` is optional (added with the recovery key feature, 2026-10-22; see below). When present it must be well formed or the file is refused as damaged.
 - `formatVersion` is the container format. The decrypted JSON has its own `version` (data model). A file with an unknown version of either is refused as `UNSUPPORTED_VERSION` rather than guessed at. Migrations will be added when version 2 exists.
 - Base64 fields must be canonical or the file is rejected. KDF numbers are range-checked before any key derivation runs.
 - **The header is not separately authenticated.** Changing the salt, KDF parameters or wrapped key makes unwrapping fail (so it cannot weaken anything), but it can make a good vault look like a wrong password. The body is not bound to the header either, so someone with write access to the file could swap in an older body from the same vault (rollback). Binding both would need AAD support in `encrypt`; consider it before format version 2.
@@ -321,3 +323,37 @@ If step 1 fails, the dialog stays open with an error, nothing else is touched an
 **About.** Shows the version (from the app config), "by Kitelux", a short privacy statement (data stays on the phone, AES-256-GCM with a key from the master password via Argon2id, no accounts / analytics / tracking / ads, the only internet features are optional and not yet available) and the open source licenses.
 
 **License list.** `npm run licenses` (`scripts/generate-licenses.js`) reads the libraries listed under `dependencies` in `package.json` and writes `src/features/about/licenses.generated.ts` with each name, version, license and license text (identical texts stored once). A test fails if a dependency is missing from the list or has an unknown license, so the list cannot silently go out of date; run the script after changing dependencies. Four packages (`@react-native-community/slider`, `expo-router`, `react-native-nitro-modules`, `react-native-quick-crypto`) declare MIT but ship no license file; the screen says so and links to the project page rather than inventing a copyright line. **Only direct dependencies are listed**, each with its own dependencies under their own (mostly MIT) licenses. Components that are not npm packages are added by hand in `extraLicenses.ts`: the EFF word list (CC BY 3.0 US attribution), OpenSSL, AndroidX Biometric, RootBeer and Hermes. Before publishing, have the full third-party notice checked, including the Apache 2.0 notices for those native components.
+
+---
+
+### 2026-10-22: Optional recovery key
+
+**What it is.** A second way to open the vault, made only if the user asks for it (Settings > Security > Recovery key). It is 256 random bits from the secure generator. The vault key is wrapped with it exactly like it is wrapped with the master-password key (AES-256-GCM), and the result is stored as an extra entry in the file header:
+
+```json
+"recovery": { "wrappedKey": "<base64, 60 bytes = iv 12 | vault key 32 | tag 16>", "createdAt": 1766400000000 }
+```
+
+The header field is optional and the format version stays 1: old files simply have no `recovery`, and a reader that does not know the field ignores it. The encrypted body is never touched by any recovery operation. No key derivation is needed for the recovery key, because it already has 256 bits of randomness (Argon2id is for guessable passwords). The recovery key itself is **never stored**: not in the file, not in settings, not in the Keystore. Only the user's written copy exists. A test checks that neither the key bytes nor any group of its text appear anywhere in the vault file.
+
+**What the user writes down.** 32 bytes of key + a 3-byte checksum = 35 bytes = 280 bits = 56 characters of Crockford base32, shown as **8 groups of 7 characters** (`XXXXXXX-XXXXXXX-...`). The alphabet is digits and capitals without I, L, O and U, so nothing is confusable. Typing it back ignores case, spaces and hyphens, and reads O as 0 and I / L as 1. The checksum is the first 3 bytes of SHA-256 of a fixed label plus the key (SHA-256 from the same vetted native library; the base32 step is plain encoding, not cryptography). It lets the app say "there is a typing mistake" before trying anything: a test tries all 1,736 possible single-character mistakes, all neighbouring swaps and swapped groups, and none is accepted; a random mistake could slip through only about 1 time in 16 million. It reveals 24 bits of a hash of the key, which leaves 232 bits to guess.
+
+**Creating it** (`RecoveryKeyCreateScreen`):
+
+1. A red warning first: **"Anyone with the recovery key can open your vault."**, plus that it works instead of the master password and must be kept offline, never as a screenshot, photo, note or in the cloud. If one already exists, it says the new one replaces it and the old key stops working.
+2. The current master password is required (through the shared unlock attempt counter, so it cannot be guessed without limit). Showing a key that opens the vault is as sensitive as changing the password.
+3. The key is generated and shown in memory only, as 8 numbered groups. **Nothing is stored yet.** To finish, the user types one randomly chosen group from their written copy; this catches a copy that was not written down or was written down wrongly. Only then does "Finish" write the header entry (atomically, same save as everything else). Leaving the screen earlier discards the key, so the app can never hold a recovery key the user never saw. If saving fails, the same key stays on screen so a paper copy that was already made stays valid.
+4. The screen is **forced to be screenshot-proof** (`FLAG_SECURE`) even if "Allow screenshots" is switched on, and there is no copy button, so the key cannot reach the clipboard from here.
+
+**PDF export.** "Print or save as PDF" first shows a warning (keep it offline, no cloud storage, no email, never a screenshot or photo, anyone who gets it can open the vault), then opens the Android print screen with `expo-print` (`printAsync`), where the user can print or choose "Save as PDF". `printToFileAsync` was deliberately not used: it would leave a PDF containing the key in the app's cache folder. The page has the 8 groups, the date, the warning and instructions; it has no scripts, no images, and no internet links. **Limits:** once the user chooses where to save the PDF, protecting it is up to them, and the Android print spooler may keep temporary data of its own; a printed paper copy kept offline is safest.
+
+**Forgot master password** (`/recover`, link on the unlock screen). The user types the key (masked, with Show; a live counter and "looks right" / "typing mistake" hint as they go) and chooses a new master password (12+ characters, strength meter). The app: reads the header, unwraps the vault key with the recovery key, **checks that it really decrypts the vault body**, then makes a fresh salt, wraps the same vault key with the new password, and writes the file back with the body unchanged, atomically (a test cuts the operation off after every possible file operation: afterwards the old or the new password always works, and the recovery key still does). Errors are specific: typing mistake, "this vault has no recovery key" (with the honest advice that the only way to start over is to clear the app's data or uninstall), "this key does not open this vault" (for example an older key that was replaced), damaged file. The recovery key is not rate-limited: it has 256 bits, so guessing is pointless, and a typo is caught by the checksum before anything is tried. After a successful recovery the unlock delay and the biometric counters restart.
+
+**Interactions.**
+
+- A normal master-password change keeps the recovery key valid (the vault key does not change); so does saving, and biometric unlock keeps working after a recovery.
+- The optional `rotateVaultKey` mode replaces the vault key, which cannot be re-wrapped for a recovery key that is not stored, so it **drops** the recovery entry (tested). Nothing in the UI uses that mode.
+- "Remove recovery key" in Settings deletes the header entry (with a confirmation); the written copy is then useless.
+- Using the recovery key does not retire it. After recovering, the key still opens the vault; the app suggests making a new one if the user thinks anyone saw it.
+
+**Risks to keep in mind.** A recovery key is a second password with no brute-force delay: anyone who finds the paper, or the PDF, can open the vault from a copy of the file. It also removes the guarantee "if you forget your password, the data is gone": that is why it is optional, off by default, behind a warning and the master password. The typed text of the key lives in JavaScript strings (the screen state) until the screen closes; it cannot be wiped, as with passwords. The key is not escrowed anywhere: lose the paper and the password, lose the vault.

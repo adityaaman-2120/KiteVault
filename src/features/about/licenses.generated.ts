@@ -94,6 +94,13 @@ export const LICENSES: LicenseEntry[] = [
     text: 2,
   },
   {
+    name: 'expo-print',
+    version: '58.0.7',
+    license: 'MIT',
+    url: 'https://github.com/expo/expo',
+    text: 2,
+  },
+  {
     name: 'expo-router',
     version: '58.0.24',
     license: 'MIT',
