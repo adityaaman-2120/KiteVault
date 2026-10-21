@@ -133,12 +133,26 @@ describe('unlockWithBiometric', () => {
 });
 
 describe('vault key handling', () => {
-  test('changing the master password turns biometric unlock off (the vault key changes)', async () => {
+  test('a normal password change keeps biometric unlock working (the vault key is unchanged)', async () => {
+    await vaultWithEntry();
+    await enableBiometric();
+
+    await useVaultStore.getState().changePassword(PASSWORD, 'a different long password');
+
+    expect(fakeNative.disableBiometricUnlock).not.toHaveBeenCalled();
+    useVaultStore.getState().lock();
+    await unlockWithBiometric();
+    expect(isVaultUnlocked()).toBe(true);
+  });
+
+  test('replacing the vault key turns biometric unlock off (the stored key is stale)', async () => {
     await vaultWithEntry();
     await enableBiometric();
     const oldKey = fakeNative.stored!.slice();
 
-    await useVaultStore.getState().changePassword(PASSWORD, 'a different long password');
+    await useVaultStore
+      .getState()
+      .changePassword(PASSWORD, 'a different long password', { rotateVaultKey: true });
 
     expect(fakeNative.disableBiometricUnlock).toHaveBeenCalled();
     expect(fakeNative.stored).toBeNull();

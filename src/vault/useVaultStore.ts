@@ -26,7 +26,12 @@ type VaultState = {
   lock: () => void;
   // Replaces the vault contents and writes them to disk.
   save: (data: VaultData) => Promise<void>;
-  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  // Checks the old password, then protects the vault with the new one (see changeMasterPassword).
+  changePassword: (
+    oldPassword: string,
+    newPassword: string,
+    options?: { rotateVaultKey?: boolean },
+  ) => Promise<void>;
 };
 
 // Deliberately no persist middleware: decrypted data must never be written out by the store.
@@ -40,6 +45,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   async create(masterPassword) {
     const data = await createVault(masterPassword);
+    // A key left over from an earlier vault must never be usable with this new one.
+    disableBiometricUnlock();
     set({ data });
     useSessionStore.getState().setStatus('unlocked');
   },
@@ -68,9 +75,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ data });
   },
 
-  async changePassword(oldPassword, newPassword) {
-    await changeMasterPassword(oldPassword, newPassword);
-    // The vault key changed, so the key stored for biometrics is now stale.
-    disableBiometricUnlock();
+  async changePassword(oldPassword, newPassword, options) {
+    await changeMasterPassword(oldPassword, newPassword, options);
+    // Only a new vault key makes the key stored for biometrics stale; re-wrapping keeps it valid.
+    if (options?.rotateVaultKey) disableBiometricUnlock();
   },
 }));

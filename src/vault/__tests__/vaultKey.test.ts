@@ -99,11 +99,24 @@ describe('unlockVaultWithKey', () => {
     await expect(unlockVaultWithKey(key)).rejects.toMatchObject({ code: 'CORRUPTED' });
   });
 
-  test('the old key stops working after the master password changes', async () => {
+  test('a normal password change keeps the vault key (only the wrapping changes)', async () => {
+    await vaultWithEntry();
+    const key = getVaultKeyCopy();
+
+    await changeMasterPassword(PASSWORD, 'another long password', { kdfParams: FAST_KDF });
+    lockVault();
+
+    await expect(unlockVaultWithKey(Uint8Array.from(key))).resolves.toBeDefined();
+  });
+
+  test('the old key stops working after a password change that replaces the vault key', async () => {
     await vaultWithEntry();
     const oldKey = getVaultKeyCopy();
 
-    await changeMasterPassword(PASSWORD, 'another long password', { kdfParams: FAST_KDF });
+    await changeMasterPassword(PASSWORD, 'another long password', {
+      kdfParams: FAST_KDF,
+      rotateVaultKey: true,
+    });
     const newKey = getVaultKeyCopy();
     lockVault();
 

@@ -14,7 +14,13 @@ import {
   wrapKey,
   type KdfParams,
 } from '@/crypto';
-import { loadVaultFile, saveVaultFile, vaultExists as storageVaultExists } from '@/storage';
+import {
+  deleteVaultFile,
+  loadVaultFile,
+  saveVaultFile,
+  vaultExists as storageVaultExists,
+  vaultFilesExist,
+} from '@/storage';
 
 import { VaultError } from './errors';
 import { decodeVaultFile, encodeVaultFile, FORMAT_VERSION, isWellFormedVaultFile } from './format';
@@ -25,8 +31,17 @@ type Session = {
   vaultKey: Uint8Array;
   header: ReturnType<typeof decodeVaultFile>['header'];
   data: VaultData;
+  // The encrypted body exactly as it is in the file, so a password change can write the file
+  // again without encrypting the vault again.
+  body: Uint8Array;
 };
 type Options = { kdfParams?: KdfParams };
+type ChangePasswordOptions = Options & {
+  // Also replace the vault key and re-encrypt the body. Slower to describe, not slower to run:
+  // protects against someone who has BOTH the old password and a copy of the old file. Off by
+  // default (the password change only re-wraps the vault key); see docs/DECISIONS.md.
+  rotateVaultKey?: boolean;
+};
 
 // The vault key and decrypted data exist only here, in memory, while unlocked.
 let session: Session | null = null;
@@ -113,9 +128,10 @@ export function createVault(masterPassword: string, options: Options = {}): Prom
         salt,
         wrappedKey: wrapKey(passwordKey, vaultKey),
       };
-      await saveVaultFile(encodeVaultFile(header, sealBody(vaultKey, data)));
+      const body = sealBody(vaultKey, data);
+      await saveVaultFile(encodeVaultFile(header, body));
       discardSession();
-      session = { vaultKey, header, data };
+      session = { vaultKey, header, data, body };
       return data;
     } catch (error) {
       wipe(vaultKey);
@@ -156,7 +172,7 @@ export function unlockVault(masterPassword: string): Promise<VaultData> {
       plaintext = decrypt(vaultKey, body);
       const data = parseVaultData(utf8Decode(plaintext));
       discardSession();
-      session = { vaultKey, header, data };
+      session = { vaultKey, header, data, body };
       return data;
     } catch (error) {
       wipe(vaultKey);
@@ -186,7 +202,7 @@ export function unlockVaultWithKey(vaultKey: Uint8Array): Promise<VaultData> {
       }
       const data = parseVaultData(utf8Decode(plaintext));
       discardSession();
-      session = { vaultKey, header, data };
+      session = { vaultKey, header, data, body };
       return data;
     } catch (error) {
       wipe(vaultKey);
@@ -213,7 +229,10 @@ export function saveVault(data: VaultData): Promise<void> {
     // No await between the check above and sealing, so a lock cannot wipe the key mid-save.
     const body = sealBody(current.vaultKey, data);
     await saveVaultFile(encodeVaultFile(current.header, body));
-    if (session === current) current.data = data;
+    if (session === current) {
+      current.data = data;
+      current.body = body;
+    }
   });
 }
 
@@ -222,12 +241,16 @@ export function lockVault(): void {
   discardSession();
 }
 
-// Re-protects the vault with a new master password. A new salt and a new vault key are used, so
-// anyone who held the old password and an old copy of the file cannot read the new file.
+// Re-protects the vault with a new master password. The old password is checked first.
+//
+// Default: only the vault key is re-wrapped. A new salt and new KDF settings give a new password
+// key, which wraps the SAME vault key, and the file is written again with the encrypted body
+// untouched (nothing is re-encrypted). Biometric unlock keeps working because the vault key did
+// not change. With rotateVaultKey a new vault key is made and the body is re-encrypted too.
 export function changeMasterPassword(
   oldPassword: string,
   newPassword: string,
-  options: Options = {},
+  options: ChangePasswordOptions = {},
 ): Promise<void> {
   return serialized(async () => {
     const current = requireSession();
@@ -256,26 +279,46 @@ export function changeMasterPassword(
     const kdf = options.kdfParams ?? DEFAULT_KDF_PARAMS;
     const salt = generateRandomBytes(SALT_LENGTH);
     const newPasswordKey = await deriveKeyFromPassword(newPassword, salt, kdf);
-    const newVaultKey = generateRandomBytes(KEY_LENGTH);
+    const rotate = options.rotateVaultKey === true;
+    const newVaultKey = rotate ? generateRandomBytes(KEY_LENGTH) : null;
     try {
       // The vault may have been locked while the new key was being derived.
       if (session !== current) throw new VaultError('LOCKED', 'The vault is locked.');
+      const keyToWrap = newVaultKey ?? current.vaultKey;
       const header = {
         formatVersion: FORMAT_VERSION,
         kdf,
         salt,
-        wrappedKey: wrapKey(newPasswordKey, newVaultKey),
+        wrappedKey: wrapKey(newPasswordKey, keyToWrap),
       };
-      await saveVaultFile(encodeVaultFile(header, sealBody(newVaultKey, current.data)));
+      const body = newVaultKey ? sealBody(newVaultKey, current.data) : current.body;
+      await saveVaultFile(encodeVaultFile(header, body)); // atomic: old file or new file, never half
       if (session !== current) throw new VaultError('LOCKED', 'The vault is locked.');
-      wipe(current.vaultKey);
-      current.vaultKey = newVaultKey;
+      if (newVaultKey) {
+        wipe(current.vaultKey);
+        current.vaultKey = newVaultKey;
+        current.body = body;
+      }
       current.header = header;
     } catch (error) {
-      if (session !== current || current.vaultKey !== newVaultKey) wipe(newVaultKey);
+      if (newVaultKey && (session !== current || current.vaultKey !== newVaultKey))
+        wipe(newVaultKey);
       throw error;
     } finally {
       wipe(newPasswordKey);
     }
+  });
+}
+
+// Permanently deletes the vault file (and its temporary and backup copies) and forgets the
+// unlocked vault. Runs in line with saves, so a save that was already waiting cannot bring the
+// file back. Throws if any file is still there afterwards; in that case nothing is forgotten.
+export function eraseVault(): Promise<void> {
+  return serialized(async () => {
+    deleteVaultFile();
+    if (vaultFilesExist()) deleteVaultFile(); // one more try
+    if (vaultFilesExist())
+      throw new VaultError('CORRUPTED', 'The vault file could not be deleted.');
+    discardSession();
   });
 }

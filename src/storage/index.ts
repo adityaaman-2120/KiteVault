@@ -5,5 +5,6 @@ export {
   saveVaultFile,
   StorageError,
   vaultExists,
+  vaultFilesExist,
   type VaultFileValidator,
 } from './vaultFile';

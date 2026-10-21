@@ -10,7 +10,8 @@
     "lint": "expo lint",
     "test": "jest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "licenses": "node scripts/generate-licenses.js"
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",

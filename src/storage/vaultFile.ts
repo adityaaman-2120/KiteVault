@@ -83,6 +83,12 @@ export async function loadVaultFile(
   return main.exists ? await main.bytes() : null;
 }
 
+// True if the vault, or any leftover temporary / backup copy of it, is still on disk. Looks only;
+// unlike vaultExists() it never restores anything.
+export function vaultFilesExist(): boolean {
+  return [MAIN, TMP, BAK].some((name) => file(name).exists);
+}
+
 export function deleteVaultFile(): void {
   removeQuietly(TMP);
   removeQuietly(BAK);

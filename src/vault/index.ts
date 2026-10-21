@@ -3,6 +3,7 @@ export { useVaultStore } from './useVaultStore';
 export {
   changeMasterPassword,
   createVault,
+  eraseVault,
   getVaultKeyCopy,
   isVaultUnlocked,
   lockVault,

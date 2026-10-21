@@ -64,7 +64,7 @@ Record important decisions here, newest last. Keep each entry short.
 - A random 256-bit **vault key** encrypts the vault body. It is never derived from the password.
 - The master password goes through Argon2id (parameters in the header) to give a **password key**. The password key only wraps the vault key (AES-256-GCM, see the crypto decision above). Neither key is stored unwrapped.
 - Wrong password and tampered wrapped key both fail to unwrap, so they cannot be told apart and are reported as `WRONG_PASSWORD` ("Wrong password, or the vault file is damaged."). Once the vault key unwraps, any later failure (body fails its GCM check, bad JSON) is reported as `CORRUPTED`.
-- **Deviation from the brief:** changing the master password also generates a **new vault key** and re-encrypts the body. The body is a single blob, so this costs nothing extra, and it means someone who knew the old password and kept an old copy of the file cannot use the old wrapped key to read the new file. (The old copy itself stays readable with the old password; nothing can change that.)
+- **Superseded (2026-10-22):** this first version of the password change also generated a new vault key and re-encrypted the body. The Settings step reverted that to the original design (re-wrap the same vault key, leave the body untouched); the key-replacing path remains as an option. See "Settings sections, changing the master password, erasing the vault, About" below.
 
 **File layout** (all in the app's private document directory, `vault.kvlt`)
 
@@ -183,7 +183,7 @@ Typing the master password correctly (`recordPasswordUnlock`, called from `unloc
 
 **Key lifecycle**
 
-- Changing the master password creates a **new vault key**, so the stored one becomes stale. The store turns biometric unlock off after a successful change; the user can turn it on again. If a stale key is ever used anyway, the vault refuses it (`WRONG_KEY`), the stored key is removed, and the user is told.
+- A normal password change now keeps the same vault key (see 2026-10-22), so biometric unlock keeps working. If the vault key is ever replaced (the `rotateVaultKey` option), the stored one becomes stale: the store then turns biometric unlock off, and if a stale key is used anyway the vault refuses it (`WRONG_KEY`), the stored key is removed, and the user is told.
 - If biometrics change (`KeyPermanentlyInvalidatedException`) or are all removed, the Keystore key, the blob and the counters are deleted and the unlock screen explains why. The same cleanup runs if the blob cannot be decrypted.
 - A half-finished setup (user cancels during "turn on") deletes the new key, so no usable key is left without a stored blob.
 - A wrong finger does not count as a result: the system dialog stays open. After too many wrong tries the system locks biometrics out for a while; we show "Too many failed biometric attempts" and the master password keeps working.
@@ -288,3 +288,36 @@ The default Expo template added `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE
 **Slider.** `@react-native-community/slider` 5.2.1 (the version Expo SDK 58 pins). It is a native component, so the development build must be rebuilt once. The generator's settings are not remembered between visits (defaults: 20 characters, all four kinds on).
 
 **Limits.** A generated password that is shown on screen is in the JavaScript heap as a string and cannot be wiped; the screen is also covered by the screenshot protection while the vault is unlocked. Copying uses the auto-clearing clipboard from the earlier decision.
+
+---
+
+### 2026-10-22: Settings sections, changing the master password, erasing the vault, About
+
+**Changing the master password: re-wrap only (this reverses an earlier choice).**
+Earlier (vault file format decision) a password change also created a new vault key and re-encrypted the vault body. The brief for the Settings screen asks for the original design: re-wrap the vault key and do not re-encrypt. That is now the default:
+
+1. the current password is checked (derive its key, unwrap, compare with the key in use);
+2. a fresh salt and the current default KDF settings give the new password key (so the stored cost is upgraded as a side effect);
+3. the **same** vault key is wrapped with the new password key;
+4. the file is written again with the **encrypted body byte for byte unchanged** (the session keeps the body exactly as it is in the file, so there is nothing to encrypt), through the same atomic temp-file-then-rename save as every other write. A test cuts the operation off after each possible file operation and checks the vault always opens with either the old or the new password.
+
+Consequences: it is faster; **biometric unlock keeps working** after a password change (the vault key it stores has not changed), and the biometric counters restart because the user just typed their password.
+
+What is given up: if someone knew the _old_ password and also kept a _copy of the old file_, they can unwrap the vault key from that copy and use it on any later version of the file, because the key never changed. Replacing the key would stop that, but only for later copies, and only if the old password was the thing that leaked. The code for it still exists (`changeMasterPassword(old, new, { rotateVaultKey: true })`, which also turns biometric unlock off because the stored key becomes stale), is tested, and is not used by any screen. To switch back, pass that option in `ChangePasswordForm`.
+
+The form asks for the current password, the new password (12+ characters, live strength meter) and a confirmation, refuses a new password equal to the current one, and shows a loading state while the two key derivations run. It shares the **unlock attempt counter and delays**: wrong current passwords count like wrong unlock tries (5 free, then 30 s, 1 min, ...), so a person holding an unlocked phone cannot guess the master password there without limit, and cannot lock the owner out by changing it. Errors never include the underlying cause.
+
+**Erasing the vault.** Settings > Data has a red "Erase vault" button. It opens a dialog with the exact text "This will permanently erase all passwords on this device. This cannot be undone." and a field; the final button stays disabled until the field holds exactly `ERASE` (capitals required, no spaces). It then:
+
+1. deletes the vault file and its temporary and backup copies, **inside the same queue as saves**, so a save that was already waiting cannot recreate the file; it checks that none of the three files exist (it looks without the usual recovery step, which would otherwise restore a leftover backup) and retries once;
+2. only if that worked: deletes the biometric key from the Android Keystore, the encrypted copy of the vault key and the biometric counters;
+3. deletes `settings.json` and the unlock-attempt counter and resets the settings in memory to the defaults;
+4. last, empties the store and sets the app state to "no vault"; the root layout then sends the user to the welcome screen.
+
+If step 1 fails, the dialog stays open with an error, nothing else is touched and the vault stays unlocked. Creating a vault now also removes any biometric key left over from an earlier one. **Limit:** deleting a file does not overwrite its contents; on flash storage the old bytes may remain until reused. They stay encrypted with a key derived from the master password. A phone factory reset (or uninstalling the app, which removes its private folder) is the stronger option.
+
+**Data section.** Shows the required note: "Uninstalling the app also deletes all local data. If you enabled cloud backup, your encrypted backup stays in your Google Drive until you delete it." **Backup** is a placeholder card.
+
+**About.** Shows the version (from the app config), "by Kitelux", a short privacy statement (data stays on the phone, AES-256-GCM with a key from the master password via Argon2id, no accounts / analytics / tracking / ads, the only internet features are optional and not yet available) and the open source licenses.
+
+**License list.** `npm run licenses` (`scripts/generate-licenses.js`) reads the libraries listed under `dependencies` in `package.json` and writes `src/features/about/licenses.generated.ts` with each name, version, license and license text (identical texts stored once). A test fails if a dependency is missing from the list or has an unknown license, so the list cannot silently go out of date; run the script after changing dependencies. Four packages (`@react-native-community/slider`, `expo-router`, `react-native-nitro-modules`, `react-native-quick-crypto`) declare MIT but ship no license file; the screen says so and links to the project page rather than inventing a copyright line. **Only direct dependencies are listed**, each with its own dependencies under their own (mostly MIT) licenses. Components that are not npm packages are added by hand in `extraLicenses.ts`: the EFF word list (CC BY 3.0 US attribution), OpenSSL, AndroidX Biometric, RootBeer and Hermes. Before publishing, have the full third-party notice checked, including the Apache 2.0 notices for those native components.

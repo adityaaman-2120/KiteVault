@@ -7,6 +7,7 @@ export { EmptyState } from './EmptyState';
 export { LetterAvatar } from './LetterAvatar';
 export { ListItem } from './ListItem';
 export { ScreenContainer } from './ScreenContainer';
+export { SectionHeader } from './SectionHeader';
 export { StrengthMeter, type StrengthLevel } from './StrengthMeter';
 export { TextField } from './TextField';
 export { ToggleRow } from './ToggleRow';

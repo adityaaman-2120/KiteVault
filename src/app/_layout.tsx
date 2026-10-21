@@ -39,10 +39,14 @@ export default function RootLayout() {
       });
   }, []);
 
-  // When an unlocked vault becomes locked (button, timeout, background), go to the unlock screen.
+  // Move to the right screen when the state changes: locked (button, timeout, background) goes to
+  // the unlock screen, and an erased vault goes back to the welcome screen.
   useEffect(() => {
     if (ready && previousStatus.current === 'unlocked' && status === 'locked') {
       router.replace('/unlock');
+    }
+    if (ready && previousStatus.current !== 'no-vault' && status === 'no-vault') {
+      router.replace('/welcome');
     }
     previousStatus.current = status;
   }, [ready, status, router]);
@@ -77,6 +81,9 @@ export default function RootLayout() {
           <Stack.Screen name="entry/edit/[id]" options={{ title: 'Edit entry' }} />
           <Stack.Screen name="trash" options={{ title: 'Trash' }} />
           <Stack.Screen name="folders" options={{ title: 'Folders' }} />
+          <Stack.Screen name="change-password" options={{ title: 'Change master password' }} />
+          <Stack.Screen name="about" options={{ title: 'About' }} />
+          <Stack.Screen name="licenses" options={{ title: 'Open source licenses' }} />
         </Stack.Protected>
       </Stack>
     </View>

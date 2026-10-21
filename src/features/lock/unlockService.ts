@@ -29,14 +29,16 @@ export function clearAttemptState(): void {
   deleteJsonFile(ATTEMPTS_FILE);
 }
 
-// Unlocks the vault, enforcing the delay after repeated wrong passwords. All unlock attempts
-// should go through here rather than calling the vault store directly.
+// Runs any action that checks the master password, enforcing the delay after repeated wrong
+// passwords. The action must throw a VaultError with code WRONG_PASSWORD when the password is wrong.
+// All password checks (unlocking, changing the password) go through here so they share one
+// counter.
 //
 // The counter lives in a small file in the app-private folder so closing the app does not reset
 // it. It is a guard against guessing on the phone itself; it does not protect a copy of the
 // vault file, which is protected by Argon2id and the password's strength alone.
-export async function unlockWithAttemptLimit(
-  password: string,
+export async function runWithAttemptLimit(
+  action: () => Promise<void>,
   now: () => number = Date.now,
 ): Promise<void> {
   const before = await loadAttemptState();
@@ -50,7 +52,7 @@ export async function unlockWithAttemptLimit(
   } satisfies AttemptState);
 
   try {
-    await useVaultStore.getState().unlock(password);
+    await action();
   } catch (error) {
     // Only a wrong password counts against the user; a damaged or missing file does not.
     if (!(error instanceof VaultError) || error.code !== 'WRONG_PASSWORD') {
@@ -60,6 +62,13 @@ export async function unlockWithAttemptLimit(
   }
   clearAttemptState();
   recordPasswordUnlock(); // restarts the biometric 7-day / 5-unlock counters
+}
+
+export function unlockWithAttemptLimit(
+  password: string,
+  now: () => number = Date.now,
+): Promise<void> {
+  return runWithAttemptLimit(() => useVaultStore.getState().unlock(password), now);
 }
 
 export { EMPTY_ATTEMPT_STATE };
