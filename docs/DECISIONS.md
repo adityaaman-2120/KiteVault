@@ -118,3 +118,15 @@ Limits: `expo-file-system` has no fsync, so after a sudden power loss the operat
 - The vault store's `unlock`/`create`/`lock` also set the route-guard status in `useSessionStore`. The placeholder screens still set that status directly; they are wired to the vault store in a later step.
 
 **Not yet verified on a device:** expo-file-system's real Android file operations. Tests use the jest-expo in-memory file system. Rename behaviour was checked by reading the library source, not by running it.
+
+---
+
+### 2026-10-21: Create-vault flow, password strength, and minimum length
+
+- **Strength meter:** `@zxcvbn-ts/core` 4.2.0 with `language-common` 4.1.3 and `language-en` 4.1.1 (all MIT, pinned, released in 2026). It is the maintained TypeScript port of Dropbox's zxcvbn, runs fully on the device, and its dictionaries ship inside the app, so there is no network call. Scoring is capped at the first 128 characters so typing stays responsive. The English dictionaries add a few MB to the JS bundle; if startup time suffers, load them only when the create-vault screen opens.
+- **Minimum length: 12 characters** (counted as characters, so an emoji is one). The strength meter is advice only: a long but weak password such as `password1234` is allowed, with a warning shown. Blocking on score would be a stricter policy; revisit if wanted.
+- **Required acknowledgement:** the checkbox "If I forget my master password, my data cannot be recovered." must be ticked before the Create button enables.
+- **Submit behaviour:** the button disables and shows a spinner while Argon2id runs (it runs on a native thread, so the UI stays responsive). On success it goes to the vault tab. On failure it shows a generic message and re-enables the button; the underlying error is never displayed or logged, because it could carry internals. If a vault already exists, it says so and re-checks app state so the user is routed to unlock.
+- **Memory:** the typed password lives in React state, which is a JavaScript string and cannot be zeroed (see the memory-wiping limits above). It is released when the screen unmounts after a successful create.
+- **App start:** the root layout now calls `useVaultStore.initialize()` before showing any screen (the splash screen stays up meanwhile), so an existing vault opens on the unlock screen instead of the welcome flow.
+- **Settings > Lock vault** now calls the real `lock()` (wipes keys and decrypted data) instead of just changing the route status. The unlock screen is still a placeholder that does not check a password; it is replaced in the next step.

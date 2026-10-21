@@ -8,6 +8,8 @@ export type ColorTokens = {
   primary: string;
   onPrimary: string;
   danger: string;
+  warning: string;
+  success: string;
 };
 
 export const lightColors: ColorTokens = {
@@ -20,6 +22,8 @@ export const lightColors: ColorTokens = {
   primary: '#2F6F8F',
   onPrimary: '#FFFFFF',
   danger: '#B3413A',
+  warning: '#A86B12',
+  success: '#2E7D5B',
 };
 
 export const darkColors: ColorTokens = {
@@ -32,4 +36,6 @@ export const darkColors: ColorTokens = {
   primary: '#6DB3D1',
   onPrimary: '#0B1418',
   danger: '#E5736B',
+  warning: '#E0A44A',
+  success: '#5FBF93',
 };

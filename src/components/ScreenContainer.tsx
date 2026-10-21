@@ -12,7 +12,9 @@ export function ScreenContainer({ children, scroll = false }: Props) {
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]}>
       {scroll ? (
-        <ScrollView contentContainerStyle={padding}>{children}</ScrollView>
+        <ScrollView contentContainerStyle={padding} keyboardShouldPersistTaps="handled">
+          {children}
+        </ScrollView>
       ) : (
         <View style={[styles.fill, padding]}>{children}</View>
       )}

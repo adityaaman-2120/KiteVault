@@ -1,12 +1,32 @@
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 
 import { useSessionStore } from '@/features/session/useSessionStore';
 import { useTheme } from '@/theme';
+import { useVaultStore } from '@/vault';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const status = useSessionStore((s) => s.status);
   const { colors } = useTheme();
+  const [ready, setReady] = useState(false);
+
+  // Find out whether a vault file already exists before choosing the first screen.
+  useEffect(() => {
+    useVaultStore
+      .getState()
+      .initialize()
+      .catch(() => {}) // on failure we stay on the welcome flow; creating will re-check
+      .finally(() => {
+        setReady(true);
+        SplashScreen.hideAsync();
+      });
+  }, []);
+
+  if (!ready) return null;
 
   return (
     <>

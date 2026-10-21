@@ -36,6 +36,7 @@ export function TextField({ label, secret = false, ...inputProps }: Props) {
           secureTextEntry={secret && !revealed}
           // Keep secrets out of keyboard suggestions and autofill.
           autoComplete={secret ? 'off' : inputProps.autoComplete}
+          importantForAutofill={secret ? 'no' : inputProps.importantForAutofill}
           placeholderTextColor={colors.textMuted}
           style={[typography.body, styles.input, { color: colors.text }]}
         />

@@ -1,11 +1,11 @@
 import { Text } from 'react-native';
 
 import { Button, Card, ScreenContainer } from '@/components';
-import { useSessionStore } from '@/features/session/useSessionStore';
 import { useTheme } from '@/theme';
+import { useVaultStore } from '@/vault';
 
 export default function SettingsScreen() {
-  const setStatus = useSessionStore((s) => s.setStatus);
+  const lock = useVaultStore((s) => s.lock);
   const { colors, typography } = useTheme();
 
   return (
@@ -16,8 +16,7 @@ export default function SettingsScreen() {
           Settings will appear here.
         </Text>
       </Card>
-      {/* Placeholder: real locking will also wipe decrypted data from memory. */}
-      <Button title="Lock vault" variant="secondary" onPress={() => setStatus('locked')} />
+      <Button title="Lock vault" variant="secondary" onPress={lock} />
     </ScreenContainer>
   );
 }
