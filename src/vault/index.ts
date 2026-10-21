@@ -30,6 +30,7 @@ export {
   type IdentityDetails,
   type Folder,
   type PasswordHistoryItem,
+  type TotpParams,
   type VaultData,
   type VaultSettings,
 } from './types';

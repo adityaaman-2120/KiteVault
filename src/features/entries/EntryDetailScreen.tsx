@@ -5,6 +5,10 @@ import { Button, Card, EmptyState, LetterAvatar, ScreenContainer } from '@/compo
 import { useTheme } from '@/theme';
 import { useVaultStore, type Entry } from '@/vault';
 
+import { TotpCode } from '@/features/totp/TotpCode';
+import { removeEntryTotp } from '@/features/totp/totpActions';
+import { useNow } from '@/features/totp/useNow';
+
 import { DetailRow } from './DetailRow';
 import { describeSaveError, moveToTrash, setFavorite } from './entryActions';
 import { formatDate, toOpenableUrl } from './format';
@@ -90,6 +94,8 @@ export function EntryDetailScreen({ id }: { id: string }) {
 
       <TypeFields entry={entry} />
 
+      <TwoFactorSection entry={entry} />
+
       {entry.notes ? (
         <Section title="Notes">
           <DetailRow label="Notes" value={entry.notes} />
@@ -136,6 +142,55 @@ export function EntryDetailScreen({ id }: { id: string }) {
       <Button title="Move to Trash" variant="danger" onPress={confirmDelete} />
     </ScreenContainer>
   );
+}
+
+function TwoFactorSection({ entry }: { entry: Entry }) {
+  const router = useRouter();
+  const { colors, typography } = useTheme();
+  if (!entry.totpSecret) {
+    return (
+      <Button
+        title="Add 2FA"
+        variant="secondary"
+        onPress={() => router.push(`/entry/totp/${entry.id}`)}
+      />
+    );
+  }
+  const remove = () =>
+    Alert.alert(
+      'Remove 2FA?',
+      'The 2FA secret will be deleted from this entry. Make sure you can still sign in to the website without it, or turn 2FA off there first.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove 2FA',
+          style: 'destructive',
+          onPress: () => {
+            removeEntryTotp(entry.id).catch((error) =>
+              Alert.alert('Could not save', describeSaveError(error)),
+            );
+          },
+        },
+      ],
+    );
+  return (
+    <Card>
+      <Text style={[typography.label, { color: colors.textMuted }]}>Two-factor code</Text>
+      <LiveTotp entry={entry} />
+      <Button
+        title="Replace 2FA"
+        variant="secondary"
+        onPress={() => router.push(`/entry/totp/${entry.id}`)}
+      />
+      <Button title="Remove 2FA" variant="secondary" onPress={remove} />
+    </Card>
+  );
+}
+
+// Only mounted while the entry has a code, so the one-second clock runs only then.
+function LiveTotp({ entry }: { entry: Entry }) {
+  const now = useNow();
+  return <TotpCode secret={entry.totpSecret ?? ''} params={entry.totpParams} now={now} />;
 }
 
 function TypeFields({ entry }: { entry: Entry }) {

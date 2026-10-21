@@ -22,9 +22,10 @@ export type PasswordStrength = {
   hint?: string;
 };
 
-export function evaluatePassword(password: string): PasswordStrength {
+// `userInputs` are words that make the password easier to guess (a site name, a user name).
+export function evaluatePassword(password: string, userInputs: string[] = []): PasswordStrength {
   if (password.length === 0) return { score: 0, label: LABELS[0] };
-  const result = zxcvbn.check(password.slice(0, MAX_SCORED_LENGTH));
+  const result = zxcvbn.check(password.slice(0, MAX_SCORED_LENGTH), userInputs);
   const score = result.score as StrengthLevel;
   const hint = result.feedback.warning || result.feedback.suggestions[0] || undefined;
   return { score, label: LABELS[score], hint };

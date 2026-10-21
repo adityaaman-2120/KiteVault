@@ -43,6 +43,14 @@
           }
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "KiteVault uses the camera only to scan a 2FA QR code. Nothing is recorded or saved.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       "./plugins/withNoBackup",
       [
         "./plugins/withGoogleBackup",

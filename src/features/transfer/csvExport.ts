@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 
 import { isTrashed } from '@/features/entries/model';
+import { toOtpauthUri } from '@/features/totp/totp';
 import type { Entry, VaultData } from '@/vault';
 
 // Bitwarden's CSV layout: it holds logins and notes with their extra fields, and Bitwarden,
@@ -21,6 +22,15 @@ export const CSV_COLUMNS = [
 
 export const CSV_NOT_ENCRYPTED_WARNING =
   'This file is NOT encrypted. Every password in it can be read by anyone or any app that can open the file. Delete it as soon as you have used it, and do not send it by email or chat or put it in cloud storage.';
+
+// The bare secret, or a full link when the code uses non-default settings, so another
+// authenticator makes the same codes.
+const totpCell = (entry: Entry): string =>
+  !entry.totpSecret
+    ? ''
+    : entry.totpParams
+      ? toOtpauthUri(entry.title, entry.totpSecret, entry.totpParams)
+      : entry.totpSecret;
 
 const line = (label: string, value: string) => `${label}: ${value}`;
 
@@ -69,7 +79,7 @@ export function entriesToCsv(data: VaultData): string {
       isLogin ? entry.urls.join('\n') : '',
       isLogin ? entry.username : '',
       isLogin ? entry.password : '',
-      isLogin ? (entry.totpSecret ?? '') : '',
+      isLogin ? totpCell(entry) : '',
     ];
   });
   return Papa.unparse({ fields: [...CSV_COLUMNS], data: rows }, { newline: '\r\n' });

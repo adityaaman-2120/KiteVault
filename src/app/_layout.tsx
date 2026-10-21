@@ -91,8 +91,10 @@ export default function RootLayout() {
           <Stack.Screen name="entry/new" options={{ title: 'New entry' }} />
           <Stack.Screen name="entry/[id]" options={{ title: 'Entry' }} />
           <Stack.Screen name="entry/edit/[id]" options={{ title: 'Edit entry' }} />
+          <Stack.Screen name="entry/totp/[id]" options={{ title: 'Two-factor code' }} />
           <Stack.Screen name="trash" options={{ title: 'Trash' }} />
           <Stack.Screen name="folders" options={{ title: 'Folders' }} />
+          <Stack.Screen name="security-check" options={{ title: 'Security check' }} />
           <Stack.Screen name="import" options={{ title: 'Import passwords' }} />
           <Stack.Screen name="export" options={{ title: 'Export' }} />
           <Stack.Screen name="backup-conflict" options={{ title: 'Backup conflict' }} />

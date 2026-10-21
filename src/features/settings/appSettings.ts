@@ -9,6 +9,9 @@ export type AppSettings = {
   allowScreenshots: boolean;
   // Seconds before a copied password / username is cleared from the clipboard. 0 = never.
   clipboardClearSeconds: number;
+  // The user allowed the optional breach check on the Security check screen. Off by default, and
+  // even when on, it runs only when the user taps the button.
+  breachCheckEnabled: boolean;
   // --- optional Google Drive backup (no secrets: only on/off switches and times) ---
   backupEnabled: boolean; // signed in and backing up
   backupAuto: boolean; // back up a little while after every change
@@ -53,6 +56,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   biometricPromptDismissed: false,
   allowScreenshots: false,
   clipboardClearSeconds: 30,
+  breachCheckEnabled: false,
   backupEnabled: false,
   backupAuto: false,
   backupPending: false,
@@ -87,6 +91,7 @@ export function parseAppSettings(raw: unknown): AppSettings {
     clipboardClearSeconds: clipboard
       ? (value.clipboardClearSeconds as number)
       : DEFAULT_APP_SETTINGS.clipboardClearSeconds,
+    breachCheckEnabled: value.breachCheckEnabled === true,
     backupEnabled: value.backupEnabled === true,
     backupAuto: value.backupEnabled === true && value.backupAuto === true,
     backupPending: value.backupPending === true,

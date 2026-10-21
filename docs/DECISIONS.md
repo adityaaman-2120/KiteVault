@@ -455,3 +455,40 @@ The sensitive scopes that would trigger a review (for example full `drive`) are 
 - After a plain (unencrypted) import the user gets a "Delete the file now" notice with an "Open file manager" button (opens the Downloads app; Android cannot open a specific file's folder).
 
 **Known limits.** Chrome/Bitwarden do not give an edit time for CSV rows, so imported CSV entries use the import time. Spreadsheet "formula injection" (a cell starting with `=`) is deliberately not escaped in the CSV: escaping would change passwords. Other managers' formats (1Password, LastPass, Firefox, Edge) are not supported.
+
+## One-time codes (2FA / TOTP)
+
+**Libraries.** `otpauth` 9 (RFC 6238 codes; Metro bundles its `esm` build, which uses `@noble/hashes`, an audited library; checked against the RFC vectors in Node) and `expo-camera` (QR scanning only). No custom crypto.
+
+**Storage.** The secret is the entry's `totpSecret` (base32), inside the encrypted vault like every other field: merged, backed up, wiped on lock. New optional `totpParams` (algorithm, digits, period) is stored only when it differs from SHA-1 / 6 digits / 30 s, so a QR code asking for 8 digits or SHA-256 produces the right codes instead of silently wrong ones. Codes are computed on every render and never stored or logged.
+
+**Accepted input.** An `otpauth://totp/...` link (scanned or pasted) or a plain base32 secret (any case, spaces/dashes/padding allowed). Refused with a specific message: counter-based (HOTP) links, non-base32 text, secrets shorter than 16 characters (80 bits, the shortest Google Authenticator issues), algorithms other than SHA-1/256/512, digits outside 6-8, periods outside 10-120 s. A scanned QR code must be an `otpauth://` link, so a website or Wi-Fi QR code is not mistaken for a secret. Secrets already in the vault from an import are kept even if shorter or malformed; such an entry shows "not valid, replace it" instead of a code.
+
+**Camera.** The preview is only shown; the code never calls `takePictureAsync`/`recordAsync` or any file API (a test reads the sources to make sure), so no frame is saved. The `expo-camera` plugin is set to add only `CAMERA` (no microphone, no `RECORD_AUDIO`; checked in the generated manifest). The setup screen blocks screenshots, since the QR code and secret are on screen. The camera permission is requested only when the user taps Scan.
+
+**Display.** Six digits (or the configured number) with a countdown ring of 30 bars that goes out as the period runs out and turns red in the last 5 seconds (drawn with plain views to avoid adding a graphics library). The code refreshes from a one-second clock that exists only while a code is on screen and resyncs when the app returns to the foreground. Tap copies through the same clipboard service as passwords, so the auto-clear delay from Settings applies. Codes appear on the entry detail screen and in the new "Authenticator" filter chip on the vault list (a live code per entry, one shared clock). Trashed entries are not listed.
+
+**CSV.** Exporting writes the bare secret, or a full `otpauth://` link when the settings are non-default; importing reads either, so settings survive a round trip.
+
+**Limits.** The shown time is the phone's clock: a wrong clock gives codes the server rejects. Steam Guard and other non-standard schemes are not supported. Editing an entry in the normal form keeps its 2FA untouched; it is changed on its own screen only.
+
+## Security check
+
+**Local checks (offline, on demand).** Run when the screen opens and again when entries change (for example after fixing one); they use no network. Only live (not Trashed) _logins_ are checked; notes, cards and identities hold no web password.
+
+- _Weak_: zxcvbn-ts score 0 or 1 (the same engine as the new-vault password meter), given the entry's title and user name as "user inputs" so a password built from them rates lower. Each distinct password is rated once. Passwords are cut at 128 characters for rating.
+- _Reused_: the same password on two or more logins; each is listed with how many others share it.
+- _Old_: the current password is older than 365 days. Age = when it was last changed (newest password-history date), else when the entry was created. For entries imported from a CSV the creation date is the import date (the file has no real date), so those look younger than they are.
+- _No password_: a login with an empty password.
+- _Could use 2FA_: a login without a code whose web address is on a short built-in list (about 45 well-known sites; subdomains match, look-alike domains do not). Only a hint, can be switched off on the screen, and is **not** counted in the score.
+- Big vaults are analysed in chunks of 25 with a pause between them so the screen stays responsive; 2,000 entries were not timed on a phone.
+
+**Score.** 0-100 = 100 × (1 − Σ penalty ÷ logins). Each login is charged for its worst problem only: breached 1.0, weak 0.8, reused 0.6, no password 0.5, old 0.3. Labels: 90+ Excellent, 75+ Good, 50+ Fair, below Poor. It is a rough guide, not a guarantee. Breach results are included only after the breach check has run, and the screen says when it has not.
+
+**Breach check (Have I Been Pwned, k-anonymity).** Off by default (`breachCheckEnabled` in settings.json, off); turning it on only reveals a "Check passwords now" button. Nothing is ever sent when the screen opens, when the switch is turned on, or automatically later. On tap, for each distinct password: SHA-1 on the phone (react-native-quick-crypto; SHA-1 is used only because the HIBP list is indexed by it), then a GET to `https://api.pwnedpasswords.com/range/<first 5 hex characters>` with `Add-Padding: true` (replies are padded so their size reveals nothing). The reply, hundreds of suffixes, is compared locally; padding rows (count 0) are ignored. Passwords sharing a prefix share one request; up to 4 requests run at once, each with a 15 s timeout; a Stop button cancels. **No password, full hash, user name, entry id or account detail is in any request** (tests assert the exact URLs and headers). This is the "optional breach check" CLAUDE.md rule 3 allows, and it needs only the `INTERNET` permission the app already has.
+
+- If any request fails the whole check fails, so a partial answer can never read as "all clear".
+- Results are kept in memory only, as SHA-1 hashes of the breached passwords (never the passwords) with a count; they are dropped when the screen closes or the switch is turned off, and the check is not repeated by itself.
+- The service is run by Troy Hunt / Cloudflare; its availability and privacy terms are theirs. The count says how often a password appeared in breaches, not that the user's own account was breached.
+
+**Not covered.** Checking that a _site_ was breached (that is a different HIBP API that needs the email address and a paid key), phishing, or whether a password is weak for reasons zxcvbn cannot see.

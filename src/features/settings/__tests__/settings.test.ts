@@ -90,6 +90,7 @@ describe('useSettingsStore', () => {
       'backupRemoteModified',
       'backupRemoteRevision',
       'biometricPromptDismissed',
+      'breachCheckEnabled',
       'clipboardClearSeconds',
       'inactivityLockMinutes',
     ]);
@@ -108,6 +109,8 @@ describe('useSettingsStore', () => {
   });
 
   test('cloud backup is off by default and automatic backup needs backup to be on', () => {
+    expect(DEFAULT_APP_SETTINGS.breachCheckEnabled).toBe(false); // the breach check is opt-in
+    expect(parseAppSettings({ breachCheckEnabled: 'yes' }).breachCheckEnabled).toBe(false);
     expect(DEFAULT_APP_SETTINGS).toMatchObject({
       backupEnabled: false,
       backupAuto: false,

@@ -12,6 +12,8 @@ import {
   removeSeedEntries,
   seedFakeEntries,
 } from './entryActions';
+import { AuthenticatorList } from '@/features/totp/AuthenticatorList';
+
 import { EntryRow, ROW_GAP, ROW_HEIGHT } from './EntryRow';
 import { ENTRY_TYPES, isTrashed } from './model';
 import { filterEntries, sortEntries } from './search';
@@ -35,6 +37,7 @@ export function VaultListScreen() {
   const [type, setType] = useState<EntryType | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [authenticatorOnly, setAuthenticatorOnly] = useState(false);
   // Typing stays instant; the list catches up a moment later.
   const deferredQuery = useDeferredValue(query);
 
@@ -43,12 +46,24 @@ export function VaultListScreen() {
   const trashCount = entries.length - active.length;
   const sorted = useMemo(() => sortEntries(active), [active]);
   const visible = useMemo(
-    () => filterEntries(sorted, { query: deferredQuery, type, favoritesOnly, folderId }),
-    [sorted, deferredQuery, type, favoritesOnly, folderId],
+    () =>
+      filterEntries(sorted, {
+        query: deferredQuery,
+        type,
+        favoritesOnly,
+        folderId,
+        withTotp: authenticatorOnly,
+      }),
+    [sorted, deferredQuery, type, favoritesOnly, folderId, authenticatorOnly],
   );
 
+  // The Authenticator filter alone, without a search or other filter narrowing it.
+  const onlyAuthenticator =
+    authenticatorOnly && query === '' && type === null && !favoritesOnly && folderId === null;
+
   const folderNames = useMemo(() => new Map((folders ?? []).map((f) => [f.id, f.name])), [folders]);
-  const filtering = query !== '' || type !== null || favoritesOnly || folderId !== null;
+  const filtering =
+    query !== '' || type !== null || favoritesOnly || folderId !== null || authenticatorOnly;
 
   // Trashed entries older than 30 days are removed for good (only saves if there are any).
   useEffect(() => {
@@ -72,6 +87,7 @@ export function VaultListScreen() {
     setType(null);
     setFavoritesOnly(false);
     setFolderId(null);
+    setAuthenticatorOnly(false);
   }
 
   async function runDev(action: () => Promise<void>) {
@@ -101,11 +117,17 @@ export function VaultListScreen() {
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <Chip
               label="All"
-              selected={!favoritesOnly && type === null}
+              selected={!favoritesOnly && type === null && !authenticatorOnly}
               onPress={() => {
                 setFavoritesOnly(false);
                 setType(null);
+                setAuthenticatorOnly(false);
               }}
+            />
+            <Chip
+              label="Authenticator"
+              selected={authenticatorOnly}
+              onPress={() => setAuthenticatorOnly((v) => !v)}
             />
             <Chip
               label="★ Favorites"
@@ -189,7 +211,14 @@ export function VaultListScreen() {
         <EmptyState title="No entries yet" message="Add your first password to get started." />
       ) : visible.length === 0 ? (
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
-          <EmptyState title="No matches" message="Nothing fits your search and filters." />
+          <EmptyState
+            title={onlyAuthenticator ? 'No codes' : 'No matches'}
+            message={
+              onlyAuthenticator
+                ? 'No entry has a 2FA code yet. Open an entry and choose Add 2FA.'
+                : 'Nothing fits your search and filters.'
+            }
+          />
           {filtering ? (
             <Button title="Clear search and filters" variant="secondary" onPress={clearFilters} />
           ) : null}
@@ -201,20 +230,24 @@ export function VaultListScreen() {
               {visible.length} of {active.length}
             </Text>
           ) : null}
-          <FlatList
-            style={{ flex: 1 }}
-            data={visible}
-            keyExtractor={keyExtractor}
-            renderItem={renderItem}
-            getItemLayout={getItemLayout}
-            ItemSeparatorComponent={Separator}
-            initialNumToRender={12}
-            maxToRenderPerBatch={12}
-            windowSize={7}
-            removeClippedSubviews
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-          />
+          {authenticatorOnly ? (
+            <AuthenticatorList entries={visible} onOpen={open} />
+          ) : (
+            <FlatList
+              style={{ flex: 1 }}
+              data={visible}
+              keyExtractor={keyExtractor}
+              renderItem={renderItem}
+              getItemLayout={getItemLayout}
+              ItemSeparatorComponent={Separator}
+              initialNumToRender={12}
+              maxToRenderPerBatch={12}
+              windowSize={7}
+              removeClippedSubviews
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            />
+          )}
         </>
       )}
 

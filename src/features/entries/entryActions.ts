@@ -42,7 +42,11 @@ export function describeSaveError(error: unknown): string {
   return 'Your change could not be saved, so nothing was changed. Please try again.';
 }
 
-const replaceEntry = (data: VaultData, id: string, update: (e: Entry) => Entry): VaultData => {
+export const replaceEntry = (
+  data: VaultData,
+  id: string,
+  update: (e: Entry) => Entry,
+): VaultData => {
   const index = data.entries.findIndex((e) => e.id === id);
   if (index === -1) throw new EntryActionError('NOT_FOUND', 'This entry no longer exists.');
   const entries = data.entries.slice();

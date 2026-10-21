@@ -6,6 +6,8 @@ export type EntryFilter = {
   favoritesOnly: boolean;
   // null = every folder, '' = entries that are in no folder
   folderId: string | null;
+  // Only entries that have a one-time code (the Authenticator view).
+  withTotp?: boolean;
 };
 
 export const NO_FILTER: EntryFilter = {
@@ -38,6 +40,7 @@ export function filterEntries(entries: readonly Entry[], filter: EntryFilter): E
   return entries.filter((entry) => {
     if (filter.type && entry.type !== filter.type) return false;
     if (filter.favoritesOnly && !entry.favorite) return false;
+    if (filter.withTotp && !entry.totpSecret) return false;
     if (filter.folderId !== null && (entry.folderId ?? '') !== filter.folderId) return false;
     if (terms.length === 0) return true;
     const text = searchText(entry);

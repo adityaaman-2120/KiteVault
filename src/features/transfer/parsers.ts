@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 
 import { newId } from '@/features/entries/model';
+import { paramsToStore, parseTotpInput } from '@/features/totp/totp';
 import type { CustomField, EntryType } from '@/vault';
 
 import { ImportError, type ImportedEntry, type ImportFormat, type ParsedImport } from './types';
@@ -35,6 +36,20 @@ function totpSecret(value: string): string | undefined {
   const match = /[?&]secret=([^&]+)/i.exec(text);
   const secret = (match ? decodeURIComponent(match[1]!) : text).replace(/\s+/g, '');
   return secret || undefined;
+}
+
+// Keeps the secret and, for a link, its settings (digits, period, algorithm). A value that is not
+// a valid secret is kept as typed, so importing never loses data; the entry then says it is invalid.
+function applyTotp(entry: ImportedEntry, value: string): void {
+  try {
+    const parsed = parseTotpInput(value);
+    entry.totpSecret = parsed.secret;
+    const params = paramsToStore(parsed.params);
+    if (params) entry.totpParams = params;
+  } catch {
+    const secret = totpSecret(value);
+    if (secret) entry.totpSecret = secret;
+  }
 }
 
 const validTime = (value: unknown, fallback: number): number => {
@@ -114,8 +129,7 @@ function parseBitwardenRow(row: Row, now: number): ImportedEntry | null {
       .split(/\r?\n/)
       .map((u) => u.trim())
       .filter(Boolean);
-    entry.totpSecret = totpSecret(row.login_totp ?? '');
-    if (entry.totpSecret === undefined) delete entry.totpSecret;
+    applyTotp(entry, row.login_totp ?? '');
   }
   if (!entry.title) entry.title = titleFromUrl(entry.urls[0] ?? '') || '(no name)';
   const empty = !entry.username && !entry.password && !entry.notes && entry.urls.length === 0;
@@ -174,8 +188,7 @@ function bitwardenItem(
   if (type === 'login' && item.login) {
     entry.username = str(item.login.username);
     entry.password = str(item.login.password);
-    const secret = totpSecret(str(item.login.totp));
-    if (secret) entry.totpSecret = secret;
+    applyTotp(entry, str(item.login.totp));
     if (Array.isArray(item.login.uris)) {
       entry.urls = (item.login.uris as { uri?: unknown }[])
         .map((u) => clean(u?.uri))

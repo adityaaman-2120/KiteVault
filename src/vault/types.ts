@@ -30,6 +30,13 @@ export type IdentityDetails = {
   address: string;
 };
 
+// How a one-time code is made. Only stored when it differs from the usual SHA-1, 6 digits, 30 s.
+export type TotpParams = {
+  algorithm: 'SHA1' | 'SHA256' | 'SHA512';
+  digits: number;
+  period: number; // seconds
+};
+
 export type Entry = {
   id: string;
   type: EntryType;
@@ -39,7 +46,8 @@ export type Entry = {
   urls: string[];
   notes: string;
   customFields: CustomField[];
-  totpSecret?: string;
+  totpSecret?: string; // base32 secret of the one-time code
+  totpParams?: TotpParams;
   folderId?: string;
   favorite: boolean;
   createdAt: number; // epoch ms

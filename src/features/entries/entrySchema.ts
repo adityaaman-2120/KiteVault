@@ -158,7 +158,9 @@ export function formToEntry(
   };
 
   if (form.folderId) entry.folderId = form.folderId;
-  if (existing?.totpSecret) entry.totpSecret = existing.totpSecret; // not editable here yet
+  // Two-factor settings are changed on their own screen, not in this form.
+  if (existing?.totpSecret) entry.totpSecret = existing.totpSecret;
+  if (existing?.totpParams) entry.totpParams = existing.totpParams;
   if (form.type === 'card') entry.card = { ...form.card };
   if (form.type === 'identity') entry.identity = { ...form.identity };
   if (existing?.deletedAt !== undefined) entry.deletedAt = existing.deletedAt;
