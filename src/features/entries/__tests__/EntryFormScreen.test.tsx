@@ -11,6 +11,7 @@ import {
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
+jest.mock('@react-native-community/slider', () => 'Slider');
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: mockBack }),
 }));
@@ -132,6 +133,56 @@ describe('new entry', () => {
     expect(field('Website 2')).toBeTruthy();
     await fireEvent.press(screen.getAllByRole('button', { name: 'Remove website' })[1]!);
     expect(screen.queryByLabelText('Website 2')).toBeNull();
+  });
+});
+
+describe('password generator', () => {
+  const generated = () => screen.getByTestId('generated-password').props.children as string;
+
+  test('"Use this password" fills the password field and the entry is saved with it', async () => {
+    await render(<EntryFormScreen />);
+    await type('Title', 'Generated');
+    expect(screen.queryByTestId('generated-password')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Generate a password' }));
+    const password = generated();
+    expect(password.length).toBe(20);
+    await fireEvent.press(screen.getByRole('button', { name: 'Use this password' }));
+
+    expect(field('Password').props.value).toBe(password);
+    expect(field('Password').props.secureTextEntry).toBe(true); // still hidden
+    expect(screen.queryByTestId('generated-password')).toBeNull(); // panel closed
+
+    await save();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    expect(storeEntries()[0]?.password).toBe(password);
+  });
+
+  test('replaces a typed password, and the old one goes to the history when editing', async () => {
+    await unlockedVaultWith([entry({ id: 'e1', password: 'old-pass' })]);
+    await render(<EntryFormScreen id="e1" />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Generate a password' }));
+    const password = generated();
+    await fireEvent.press(screen.getByRole('button', { name: 'Use this password' }));
+    await save();
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(storeEntries()[0]).toMatchObject({ password });
+    expect(storeEntries()[0]?.passwordHistory.map((h) => h.password)).toEqual(['old-pass']);
+  });
+
+  test('can be closed without using it, leaving the field alone', async () => {
+    await render(<EntryFormScreen />);
+    await type('Password', 'typed-by-hand');
+    await fireEvent.press(screen.getByRole('button', { name: 'Generate a password' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Hide generator' }));
+    expect(screen.queryByTestId('generated-password')).toBeNull();
+    expect(field('Password').props.value).toBe('typed-by-hand');
+  });
+
+  test('the generator is only offered for logins', async () => {
+    await render(<EntryFormScreen />);
+    await choose('Secure note');
+    expect(screen.queryByRole('button', { name: 'Generate a password' })).toBeNull();
   });
 });
 

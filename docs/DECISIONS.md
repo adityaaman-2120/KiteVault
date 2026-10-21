@@ -264,3 +264,27 @@ The default Expo template added `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE
 **Forms.** `react-hook-form` 7.90.0, `zod` 4.6.7 and `@hookform/resolvers` 5.2.2 (all pinned). The resolvers 6.0.0 release was not used because npm could not resolve its optional peers. Validation: title required; websites must be valid http(s) (empty allowed); card number 12 to 19 digits, expiry `MM/YY`, security code 3 to 4 digits; identity email valid; a custom field with a value needs a name; length limits everywhere. Rules for a type only apply to that type. Old passwords go to the password history (newest first, at most 10) whenever the password changes.
 
 **Memory.** Locking now also blanks card and identity details (field by field) and drops password history. As before, JavaScript strings that were already read (for example text shown on screen) cannot be zeroed; see the earlier limits.
+
+---
+
+### 2026-10-21: Password and passphrase generator (`src/features/generator`)
+
+**Randomness: secure only, no modulo bias**
+
+- Every random choice comes from `generateRandomBytes` in `src/crypto` (OpenSSL's secure generator through `react-native-quick-crypto`). `Math.random()` is not used anywhere, and a test fails if it is called during generation.
+- `createUniformPicker().pick(n)` returns an integer from 0 to n-1 with **rejection sampling**, not `value % n`. It reads 32 random bits; if the value is at or above the largest multiple of n that fits in 2^32, it is thrown away and a new value is drawn. Every result is then exactly equally likely. (Plain `% n` favours the small results whenever n does not divide 2^32; for n = 90 characters the bias is tiny but real, and we do not accept any.)
+- The tests prove this exactly rather than statistically: `reduceUniform(value, n, range)` is run on every possible value of a 256-value range for many n, and all results must come out with identical counts and exactly `256 % n` rejected values. A companion test shows the naive `% n` version fails the same check (counts 86/85/85), so the test is known to be able to catch the bug. Chi-square checks on the real generator back it up.
+- Random bytes are fetched 256 at a time (64 draws per native call); unused bytes are wiped when the generator finishes (best effort, as everywhere in JavaScript).
+- The shuffle is Fisher-Yates using the same unbiased picks.
+
+**Passwords.** Length 8 to 64; uppercase, lowercase, numbers, symbols switches (at least one must stay on); optional "avoid look-alikes" (leaves out `I l 1 | O 0 o`). Symbols are `!@#$%^&*()-_=+[]{};:,.<>?/~`, deliberately without quotes, backslash, backtick or space, which many sites and forms mangle. One character from every selected group is always included (sites often require it), the rest are drawn from all selected groups, then everything is shuffled. Because of the "at least one of each" rule the number of possible results is slightly smaller than `pool^length`; the strength figure uses the exact count (inclusion-exclusion), which is an upper bound on the real randomness.
+
+**Passphrases.** 3 to 10 words from the **EFF Large Wordlist** (7,776 words, chosen to be easy to read and type, with no very short or confusing words), bundled in `wordlist.ts`; no network access. Licence: CC BY 3.0 US (attribution is in the file header; changes: dice numbers removed). We removed the 4 hyphenated words (`drop-down`, `felt-tip`, `t-shirt`, `yo-yo`) so a `-` separator is never ambiguous, leaving **7,772 words, 12.92 bits per word**. The list was checked on import (7,776 unique lines in the expected format) and its original SHA-256 is recorded in the file header (`addd3553...`). Options: separator (`-`, space, `.`, `_`), capitalize each word (adds no randomness), and an optional single digit added to one random word (adds the digit and its position). Six words is about 77 bits, seven about 90.
+
+**Strength indicator.** For text we generate ourselves we know exactly how random it is, so the meter uses bits of randomness (under 28 very weak, under 40 weak, under 60 fair, under 80 good, 80 or more strong) and shows the number. The zxcvbn estimator used for typed master passwords is not used here: it scores common words by their popularity, so it would badly under-rate a passphrase of randomly chosen words. 80 bits is far beyond any realistic offline attack; the default 20-character password is about 128 bits.
+
+**"Use this password".** The entry form (logins only) has a "Generate a password" button that opens the same generator panel inline, with a "Use this password" button. The value goes straight into the form field in memory; it is never put in a route parameter, a link or any shared store, where it could linger in navigation history. The field stays hidden. If the entry already had a password, saving moves the old one into the password history.
+
+**Slider.** `@react-native-community/slider` 5.2.1 (the version Expo SDK 58 pins). It is a native component, so the development build must be rebuilt once. The generator's settings are not remembered between visits (defaults: 20 characters, all four kinds on).
+
+**Limits.** A generated password that is shown on screen is in the JavaScript heap as a string and cannot be wiped; the screen is also covered by the screenshot protection while the vault is unlocked. Copying uses the auto-clearing clipboard from the earlier decision.

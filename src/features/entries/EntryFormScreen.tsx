@@ -23,6 +23,8 @@ import {
 import { useTheme } from '@/theme';
 import { useVaultStore, type EntryType } from '@/vault';
 
+import { PasswordGeneratorPanel } from '@/features/generator/PasswordGeneratorPanel';
+
 import { describeSaveError, saveEntryFromForm } from './entryActions';
 import { emptyForm, entryFormSchema, entryToForm, type EntryFormValues } from './entrySchema';
 import { ENTRY_TYPES, newId } from './model';
@@ -65,8 +67,9 @@ export function EntryFormScreen({ id }: { id?: string }) {
   );
   const folders = useVaultStore((s) => s.data?.folders);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showGenerator, setShowGenerator] = useState(false);
 
-  const { control, handleSubmit, formState } = useForm<EntryFormValues>({
+  const { control, handleSubmit, formState, setValue } = useForm<EntryFormValues>({
     resolver: zodResolver(entryFormSchema),
     defaultValues: existing ? entryToForm(existing) : emptyForm(),
     mode: 'onTouched',
@@ -129,6 +132,20 @@ export function EntryFormScreen({ id }: { id?: string }) {
         <Card>
           <FormTextField control={control} name="username" label="Username" />
           <FormTextField control={control} name="password" label="Password" secret />
+          <Button
+            title={showGenerator ? 'Hide generator' : 'Generate a password'}
+            variant="secondary"
+            onPress={() => setShowGenerator((open) => !open)}
+          />
+          {showGenerator ? (
+            <PasswordGeneratorPanel
+              onUse={(value) => {
+                // Straight into the field: the password never goes through the address bar of a screen.
+                setValue('password', value, { shouldDirty: true, shouldValidate: true });
+                setShowGenerator(false);
+              }}
+            />
+          ) : null}
           {urls.fields.map((field, index) => (
             <View key={field.id} style={{ gap: spacing.xs }}>
               <FormTextField
