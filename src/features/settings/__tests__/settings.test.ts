@@ -11,11 +11,13 @@ afterAll(() => deleteJsonFile(SETTINGS_FILE));
 
 describe('parseAppSettings', () => {
   test('keeps valid values', () => {
-    expect(parseAppSettings({ backgroundLockSeconds: 300, inactivityLockMinutes: 15 })).toEqual({
+    expect(
+      parseAppSettings({ backgroundLockSeconds: 300, inactivityLockMinutes: 15 }),
+    ).toMatchObject({
       backgroundLockSeconds: 300,
       inactivityLockMinutes: 15,
     });
-    expect(parseAppSettings({ backgroundLockSeconds: 0, inactivityLockMinutes: 1 })).toEqual({
+    expect(parseAppSettings({ backgroundLockSeconds: 0, inactivityLockMinutes: 1 })).toMatchObject({
       backgroundLockSeconds: 0,
       inactivityLockMinutes: 1,
     });
@@ -26,7 +28,9 @@ describe('parseAppSettings', () => {
   });
 
   test('replaces only the invalid field', () => {
-    expect(parseAppSettings({ backgroundLockSeconds: 77, inactivityLockMinutes: 10 })).toEqual({
+    expect(
+      parseAppSettings({ backgroundLockSeconds: 77, inactivityLockMinutes: 10 }),
+    ).toMatchObject({
       backgroundLockSeconds: DEFAULT_APP_SETTINGS.backgroundLockSeconds,
       inactivityLockMinutes: 10,
     });
@@ -44,8 +48,8 @@ describe('useSettingsStore', () => {
     expect(useSettingsStore.getState().backgroundLockSeconds).toBe(0);
     await saving;
     expect(await readJsonFile(SETTINGS_FILE)).toEqual({
+      ...DEFAULT_APP_SETTINGS,
       backgroundLockSeconds: 0,
-      inactivityLockMinutes: DEFAULT_APP_SETTINGS.inactivityLockMinutes,
     });
   });
 
@@ -71,11 +75,23 @@ describe('useSettingsStore', () => {
     expect(useSettingsStore.getState()).toMatchObject(DEFAULT_APP_SETTINGS);
   });
 
-  test('the settings file holds nothing but the two lock preferences', async () => {
+  test('the settings file holds only the preferences and no secrets', async () => {
     await useSettingsStore.getState().update({ backgroundLockSeconds: 60 });
     expect(Object.keys((await readJsonFile(SETTINGS_FILE)) as object).sort()).toEqual([
       'backgroundLockSeconds',
+      'biometricPromptDismissed',
       'inactivityLockMinutes',
     ]);
+  });
+
+  test('remembers the biometric "do not ask again" choice', async () => {
+    await useSettingsStore.getState().update({ biometricPromptDismissed: true });
+    useSettingsStore.setState(DEFAULT_APP_SETTINGS);
+    await useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().biometricPromptDismissed).toBe(true);
+    // Anything that is not exactly true counts as false.
+    expect(parseAppSettings({ biometricPromptDismissed: 'yes' }).biometricPromptDismissed).toBe(
+      false,
+    );
   });
 });

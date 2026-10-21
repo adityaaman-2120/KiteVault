@@ -3,6 +3,7 @@ export type VaultErrorCode =
   | 'VAULT_EXISTS'
   | 'LOCKED'
   | 'WRONG_PASSWORD'
+  | 'WRONG_KEY'
   | 'CORRUPTED'
   | 'UNSUPPORTED_VERSION'
   | 'INVALID_INPUT';

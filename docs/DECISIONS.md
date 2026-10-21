@@ -155,3 +155,45 @@ Limits: `expo-file-system` has no fsync, so after a sudden power loss the operat
 **App settings file** (`settings.json`, app-private folder, not encrypted)
 
 Holds only `backgroundLockSeconds` and `inactivityLockMinutes`. Invalid or missing values fall back to defaults field by field. It is written non-atomically because losing it only resets two preferences. Because it is not encrypted or authenticated, someone with file access could set the timeouts to the most permissive allowed values; the options are limited to the lists above (no "never").
+
+---
+
+### 2026-10-21: Biometric unlock (local Expo module `src/native/keystore`, Kotlin)
+
+**Why a Kotlin module:** the Android Keystore and BiometricPrompt are not reachable from plain JavaScript, and the later Autofill service runs in the same app and must be able to use the same Keystore key. The key has a fixed alias (`kitevault_biometric_key_v1`) for that reason. `package.json` sets `expo.autolinking.nativeModulesDir` to `./src/native` so Expo finds the module there instead of the default `modules/` folder.
+
+**How it works**
+
+1. The vault key (32 random bytes, see the vault file format above) is encrypted by a hardware-backed AES-256-GCM key in the Android Keystore. That Keystore key:
+   - needs a fresh Class 3 ("strong") fingerprint / face check for **every** use (`setUserAuthenticationRequired(true)`, timeout 0, `AUTH_BIOMETRIC_STRONG`; no PIN or pattern),
+   - becomes permanently unusable when a new fingerprint / face is enrolled (`setInvalidatedByBiometricEnrollment(true)`),
+   - is only usable while the phone is unlocked (`setUnlockedDeviceRequired`, Android 9+),
+   - is created in StrongBox when the phone has it and silently falls back to the normal secure environment (TEE) when it does not.
+2. The encrypted vault key is saved as `kitevault_biometric_blob.bin` in the app's private folder (written through `AtomicFile`). The IV is chosen by the Keystore, never by us.
+3. To unlock, `BiometricPrompt` runs with the decrypt cipher as its crypto object. Only after the user passes does the hardware allow the cipher to run once. The decrypted vault key is returned to JavaScript, which opens the vault with it (`unlockVaultWithKey`) by decrypting the vault body; a wrong key simply fails the GCM check.
+4. Turning it on also shows the system prompt once (an auth-bound AES key cannot even encrypt without it). This doubles as proof that the biometrics work.
+
+**When the master password is required again** (enforced in Kotlin, `BiometricPolicy.kt`, counted from the last time the master password was typed):
+
+- after the phone restarts (the boot counter changed, or the elapsed-time clock went backwards),
+- after 7 days (measured with the elapsed-time clock, so changing the date or time does not extend it),
+- after 5 successful biometric unlocks (the 6th needs the password).
+
+Typing the master password correctly (`recordPasswordUnlock`, called from `unlockWithAttemptLimit`) restarts all three counters without needing another fingerprint prompt. The counters are in private SharedPreferences; the policy is unit tested (`BiometricPolicyTest.kt`).
+
+**Key lifecycle**
+
+- Changing the master password creates a **new vault key**, so the stored one becomes stale. The store turns biometric unlock off after a successful change; the user can turn it on again. If a stale key is ever used anyway, the vault refuses it (`WRONG_KEY`), the stored key is removed, and the user is told.
+- If biometrics change (`KeyPermanentlyInvalidatedException`) or are all removed, the Keystore key, the blob and the counters are deleted and the unlock screen explains why. The same cleanup runs if the blob cannot be decrypted.
+- A half-finished setup (user cancels during "turn on") deletes the new key, so no usable key is left without a stored blob.
+- A wrong finger does not count as a result: the system dialog stays open. After too many wrong tries the system locks biometrics out for a while; we show "Too many failed biometric attempts" and the master password keeps working.
+- "Turn off" and "Don't ask again" are in Settings / the offer dialog; the choice "Don't ask again" is saved in the plain settings file.
+
+**Risks and limits (please read)**
+
+- **The vault key crosses into JavaScript** when biometrics unlock the vault, exactly as it does after a password unlock. Anything said about wiping memory in the earlier decision applies: the Kotlin side hands the bytes over, and we cannot guarantee every copy in the JS engine and the bridge is erased. We wipe our JS copies and zero the Kotlin array where we can.
+- **Biometric unlock is weaker than the master password.** Anyone who can pass the phone's fingerprint / face check (a sleeping owner, a coerced owner, a sibling whose face is enrolled) can open the vault, subject to the 5-unlock / 7-day / restart limits. Class 3 sensors make spoofing hard but not impossible. This is a convenience feature; users who need more should leave it off.
+- **Only Class 3 biometrics count.** Phones with only Class 2 face unlock (many budget phones) will show it as unavailable. This is intentional.
+- **It does not protect a copy of the vault file.** The Keystore key never leaves the phone, so the blob is useless elsewhere, but a stolen copy of `vault.kvlt` is still only protected by the master password and Argon2id.
+- **Rooted or compromised phones** can hook the app and read the key after a legitimate unlock. Keystore hardware protects the key at rest, not from code running inside our own process.
+- **Verified so far:** the Kotlin module compiles under Gradle against Expo SDK 58 and `BiometricPolicyTest.kt` passes (7 tests); the JavaScript side is covered by unit tests against a fake native module. **Not verified:** anything that needs real hardware, namely the system fingerprint dialog, StrongBox versus TEE key creation, invalidation after enrolling a new fingerprint, and the Expo ByteArray bridge. Try these by hand on at least one phone before relying on the feature.

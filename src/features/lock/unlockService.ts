@@ -1,3 +1,4 @@
+import { recordPasswordUnlock } from '@/native/keystore';
 import { deleteJsonFile, readJsonFile, writeJsonFile } from '@/storage/jsonFile';
 import { useVaultStore, VaultError } from '@/vault';
 
@@ -58,6 +59,7 @@ export async function unlockWithAttemptLimit(
     throw error;
   }
   clearAttemptState();
+  recordPasswordUnlock(); // restarts the biometric 7-day / 5-unlock counters
 }
 
 export { EMPTY_ATTEMPT_STATE };

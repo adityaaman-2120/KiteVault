@@ -1,6 +1,7 @@
 import { Text } from 'react-native';
 
 import { Button, Card, ChoiceGroup, ScreenContainer } from '@/components';
+import { BiometricSettingsCard } from '@/features/biometric/BiometricSettingsCard';
 import { useTheme } from '@/theme';
 import { useVaultStore } from '@/vault';
 
@@ -34,6 +35,7 @@ export function SettingsForm() {
           Closing the app always locks the vault.
         </Text>
       </Card>
+      <BiometricSettingsCard />
       <Button title="Lock now" variant="secondary" onPress={lock} />
     </ScreenContainer>
   );

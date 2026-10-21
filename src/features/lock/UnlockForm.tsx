@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { Button, ScreenContainer, TextField } from '@/components';
+import { unlockWithBiometric } from '@/features/biometric/biometricService';
+import { describeBiometricError, describeReauth } from '@/features/biometric/messages';
+import { offerBiometricUnlock } from '@/features/biometric/offerBiometricUnlock';
+import { useBiometricState } from '@/features/biometric/useBiometricState';
+import { BiometricError, disableBiometricUnlock } from '@/native/keystore';
 import { useTheme } from '@/theme';
 import { VaultError } from '@/vault';
 
@@ -34,6 +39,8 @@ export function UnlockForm() {
   // Time left on the current delay, refreshed once a second while it runs.
   const [remainingMs, setRemainingMs] = useState(0);
   const lockedUntil = useRef(0);
+  const biometric = useBiometricState();
+  const [biometricBusy, setBiometricBusy] = useState(false);
 
   function startWait(ms: number) {
     lockedUntil.current = Date.now() + ms;
@@ -52,6 +59,18 @@ export function UnlockForm() {
     };
   }, []);
 
+  // If the phone's biometrics changed or were removed, the stored key is dead: remove it and say why.
+  const { state: biometricState, refresh: refreshBiometric } = biometric;
+  const [staleKeyNotice, setStaleKeyNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (biometricState !== 'invalidated' && biometricState !== 'unavailable') return;
+    const kind = biometricState === 'invalidated' ? 'key-invalidated' : 'unavailable';
+    disableBiometricUnlock();
+    void refreshBiometric().then(() =>
+      setStaleKeyNotice(describeBiometricError(new BiometricError(kind))),
+    );
+  }, [biometricState, refreshBiometric]);
+
   const waiting = remainingMs > 0;
   useEffect(() => {
     if (!waiting) return;
@@ -69,6 +88,7 @@ export function UnlockForm() {
     try {
       await unlockWithAttemptLimit(password);
       setPassword('');
+      void offerBiometricUnlock(); // asks only if it is available and not on yet
       router.replace('/vault');
     } catch (e) {
       setPassword('');
@@ -81,6 +101,21 @@ export function UnlockForm() {
         if (remaining > 0) startWait(remaining);
       }
       setBusy(false);
+    }
+  }
+
+  async function submitBiometric() {
+    if (busy || biometricBusy) return;
+    setBiometricBusy(true);
+    setError(null);
+    try {
+      await unlockWithBiometric();
+      router.replace('/vault');
+    } catch (e) {
+      setError(describeBiometricError(e));
+      // The key may have been removed (changed biometrics, 5 unlocks, ...): refresh what we show.
+      await refreshBiometric();
+      setBiometricBusy(false);
     }
   }
 
@@ -102,9 +137,9 @@ export function UnlockForm() {
         onSubmitEditing={submit}
       />
 
-      {error ? (
+      {(error ?? staleKeyNotice) ? (
         <Text accessibilityRole="alert" style={[typography.body, { color: colors.danger }]}>
-          {error}
+          {error ?? staleKeyNotice}
         </Text>
       ) : null}
       {waiting ? (
@@ -119,6 +154,21 @@ export function UnlockForm() {
         disabled={password.length === 0 || waiting}
         loading={busy}
       />
+
+      {biometric.state === 'ready' ? (
+        <Button
+          title={biometricBusy ? 'Waiting for fingerprint…' : 'Unlock with fingerprint'}
+          variant="secondary"
+          onPress={submitBiometric}
+          disabled={busy}
+          loading={biometricBusy}
+        />
+      ) : null}
+      {biometric.state === 'reauth-required' ? (
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          {describeReauth()} Biometric unlock will work again afterwards.
+        </Text>
+      ) : null}
     </ScreenContainer>
   );
 }

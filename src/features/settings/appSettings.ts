@@ -3,6 +3,8 @@
 export type AppSettings = {
   backgroundLockSeconds: number; // 0 = immediately
   inactivityLockMinutes: number;
+  // True once the user chose "Don't ask again" on the biometric offer.
+  biometricPromptDismissed: boolean;
 };
 
 export const BACKGROUND_LOCK_OPTIONS = [
@@ -23,6 +25,7 @@ export const INACTIVITY_LOCK_OPTIONS = [
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   backgroundLockSeconds: 30,
   inactivityLockMinutes: 5,
+  biometricPromptDismissed: false,
 };
 
 export const SETTINGS_FILE = 'settings.json';
@@ -39,5 +42,6 @@ export function parseAppSettings(raw: unknown): AppSettings {
     inactivityLockMinutes: inactivity
       ? (value.inactivityLockMinutes as number)
       : DEFAULT_APP_SETTINGS.inactivityLockMinutes,
+    biometricPromptDismissed: value.biometricPromptDismissed === true,
   };
 }

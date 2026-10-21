@@ -161,6 +161,43 @@ export function unlockVault(masterPassword: string): Promise<VaultData> {
   });
 }
 
+// Unlocks with the vault key itself (used by biometric unlock) instead of the master password.
+// Takes ownership of vaultKey: on success the session keeps it, on failure it is wiped.
+// Throws WRONG_KEY when the key does not decrypt the vault (for example a stale stored key).
+export function unlockVaultWithKey(vaultKey: Uint8Array): Promise<VaultData> {
+  return serialized(async () => {
+    let plaintext: Uint8Array | undefined;
+    try {
+      const bytes = await loadVaultFile(isWellFormedVaultFile);
+      if (!bytes) throw new VaultError('NO_VAULT', 'There is no vault on this device.');
+      const { header, body } = decodeVaultFile(bytes);
+      try {
+        plaintext = decrypt(vaultKey, body);
+      } catch {
+        throw new VaultError('WRONG_KEY', 'The stored key does not match this vault.');
+      }
+      const data = parseVaultData(utf8Decode(plaintext));
+      discardSession();
+      session = { vaultKey, header, data };
+      return data;
+    } catch (error) {
+      wipe(vaultKey);
+      throw error instanceof VaultError
+        ? error
+        : new VaultError('CORRUPTED', 'The vault file is damaged.');
+    } finally {
+      wipe(plaintext);
+    }
+  });
+}
+
+// A copy of the vault key for wrapping it with the phone's Keystore (biometric unlock).
+// The caller must wipe the copy as soon as it has been handed over.
+export function getVaultKeyCopy(): Uint8Array {
+  // Uint8Array.from copies. Buffer.slice() would NOT: it shares memory, so wiping the "copy" would wipe the session key.
+  return Uint8Array.from(requireSession().vaultKey);
+}
+
 // Encrypts `data` with a fresh IV and atomically replaces the vault file.
 export function saveVault(data: VaultData): Promise<void> {
   return serialized(async () => {

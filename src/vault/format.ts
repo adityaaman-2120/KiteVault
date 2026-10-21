@@ -109,7 +109,7 @@ export function decodeVaultFile(bytes: Uint8Array): { header: VaultHeader; body:
 
   return {
     header: { formatVersion: FORMAT_VERSION, kdf: parseKdf(raw.kdf), salt, wrappedKey },
-    body: bytes.slice(headerStart + headerLength),
+    body: Uint8Array.from(bytes.subarray(headerStart + headerLength)),
   };
 }
 

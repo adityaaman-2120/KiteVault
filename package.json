@@ -58,5 +58,10 @@
     "moduleNameMapper": {
       "^react-native-quick-crypto$": "<rootDir>/jest/quick-crypto-node.js"
     }
+  },
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./src/native"
+    }
   }
 }
