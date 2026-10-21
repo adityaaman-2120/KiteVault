@@ -1,0 +1,8 @@
+name,url,username,password,note
+Example Site,https://example.com/login,alice@example.com,"pa,ss ""quoted"" word",first note
+,https://www.nameless.test/,bob,secret-two,
+GitHub,https://github.com,alice,"line1
+line2-password","multi
+line note"
+,,,,
+Old format row,https://old.test,carol,old-pass,

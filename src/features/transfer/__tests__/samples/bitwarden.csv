@@ -1,0 +1,8 @@
+folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+Work,1,login,Intranet,"Some notes","Employee id: 12345
+Region: EU",0,"https://intranet.test
+https://intranet2.test",dave,dave-pass,otpauth://totp/Intranet:dave?secret=JBSWY3DPEHPK3PXP&issuer=Intranet
+,,note,Wi-Fi code,Router password is on the fridge,,0,,,,
+Personal,,login,,,,0,https://noname.test,erin,erin-pass,
+,,login,Plain,,,0,https://plain.test,frank,frank-pass,JBSW Y3DP
+,,login,,,,0,,,,

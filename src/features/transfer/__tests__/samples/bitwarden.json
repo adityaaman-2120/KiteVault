@@ -1,0 +1,58 @@
+{
+  "encrypted": false,
+  "folders": [{ "id": "f-1", "name": "Banking" }],
+  "items": [
+    {
+      "type": 1,
+      "name": "Bank login",
+      "notes": "memo",
+      "favorite": true,
+      "folderId": "f-1",
+      "creationDate": "2024-01-02T03:04:05.000Z",
+      "revisionDate": "2024-02-03T04:05:06.000Z",
+      "login": {
+        "username": "gina",
+        "password": "gina-pass",
+        "totp": "otpauth://totp/Bank:gina?secret=KRSXG5CTMVRXEZLU",
+        "uris": [{ "uri": "https://bank.test" }, { "uri": "https://bank2.test" }]
+      },
+      "fields": [
+        { "name": "Customer no", "value": "777", "type": 0 },
+        { "name": "Security answer", "value": "blue", "type": 1 }
+      ]
+    },
+    { "type": 2, "name": "Safe combination", "notes": "12-34-56", "folderId": null },
+    {
+      "type": 3,
+      "name": "Visa",
+      "card": {
+        "cardholderName": "Gina Example",
+        "number": "4111111111111111",
+        "expMonth": "7",
+        "expYear": "2030",
+        "code": "123"
+      }
+    },
+    {
+      "type": 4,
+      "name": "Passport",
+      "identity": {
+        "title": "Ms",
+        "firstName": "Gina",
+        "lastName": "Example",
+        "email": "gina@example.com",
+        "phone": "555-0100",
+        "address1": "1 Main St",
+        "city": "Town",
+        "country": "US"
+      }
+    },
+    {
+      "type": 1,
+      "name": "Deleted login",
+      "deletedDate": "2024-03-01T00:00:00.000Z",
+      "login": { "username": "old", "password": "old-pass" }
+    },
+    "not an item"
+  ]
+}

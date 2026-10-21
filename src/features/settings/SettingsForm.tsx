@@ -7,6 +7,7 @@ import { BackupCard } from '@/features/backup/BackupCard';
 import { BiometricSettingsCard } from '@/features/biometric/BiometricSettingsCard';
 import { DataInfoCard } from '@/features/data/DataInfoCard';
 import { EraseVaultCard } from '@/features/data/EraseVaultCard';
+import { DataTransferCard } from '@/features/transfer/DataTransferCard';
 import { PrivacySettingsCard } from '@/features/privacy/PrivacySettingsCard';
 import { RecoveryKeyCard } from '@/features/recovery/RecoveryKeyCard';
 import { useTheme } from '@/theme';
@@ -65,6 +66,7 @@ export function SettingsForm() {
 
       <SectionHeader title="Data" />
       <DataInfoCard />
+      <DataTransferCard />
       <EraseVaultCard />
 
       <SectionHeader title="About" />

@@ -434,3 +434,24 @@ The sensitive scopes that would trigger a review (for example full `drive`) are 
 **History.** Lists the versions (time, phone, revision). Restoring needs that version's master password (checked first). If this phone has changes the cloud lacks, the current vault is uploaded as a new version first, so a restore can be undone.
 
 **Not verified here:** real Drive behaviour of app properties (the 124-byte limit is respected and tested against the fake) and clock skew between phones (Drive's own times are used for comparing cloud versions, but entry `updatedAt` comes from each phone's clock, so a phone with a wrong clock can win or lose a merge unfairly).
+
+## Import and export (Settings, Data)
+
+**Libraries.** `expo-sharing` (hand a file to another app), `expo-document-picker` (choose a file), `papaparse` (CSV reading and writing; plain JavaScript, no network). `expo install` added the `expo-sharing` _config plugin_ to `app.json`; it is for receiving shared files (it adds share-target intent filters), which KiteVault does not want, so it was removed again. Sharing a file out needs no plugin.
+
+**Export.**
+
+- _Encrypted (.kvault)_: the vault file exactly as stored (same format as `vault.kvlt`, see "Vault file format"), so nothing is decrypted or re-encrypted and it stays protected by the master password (and recovery key, if set) the vault has _now_. After a later password change the file still needs the old password; the screen says so.
+- _Plain CSV_: Bitwarden's column layout (logins and notes with custom fields, folder, favourite, authenticator secret). Cards and identities have no column, so they are written as notes with every detail as text, so nothing is dropped. Trash is left out. The CSV is shown only after a strong "NOT encrypted" warning.
+- Both ask for the master password again, through the same attempt limiter as unlocking, so someone holding an already unlocked phone cannot guess the password through the export screen.
+- The file is written to its own folder in the app-private cache, shared, then deleted. It is also deleted when the export screen opens and when the app starts, in case the app was killed during the share. **Not verified on a device:** Android's share sheet may return before the receiving app has finished reading the file; deleting straight afterwards could then truncate a slow share. If that shows up, the delete should move to the next app start only.
+- The export screen blocks screenshots like the other secret screens.
+
+**Import.** Chrome passwords CSV (also its older four-column form), Bitwarden CSV and JSON, KiteVault `.kvault`. Format is detected from the content, not the file name. A password-protected Bitwarden export is refused with an explanation. Files over 20 MB are refused. The picker's cache copy is deleted as soon as it is read; the user's original is never touched or deleted.
+
+- Preview before anything changes: count, new vs. already present, ignored rows. A `.kvault` is opened with its own master password first (wrong guesses count towards the lockout, like the cloud restore).
+- **Duplicate** = same type, name, user name, first web address (ignoring `https://`, `www.`, trailing `/`, case) and password. A login with the same name but another password is _not_ a duplicate, so an import can never hide a different password. Entries in the Trash do not count as existing. A repeat inside the file counts as a duplicate of its first copy. "Skip duplicates" is on by default.
+- Imported entries always get new ids and are only added: nothing existing is changed or removed. Folders are matched by name (ignoring case) or created. Bitwarden's deleted items arrive in the Trash with their deletion date; Bitwarden creation/revision dates are kept.
+- After a plain (unencrypted) import the user gets a "Delete the file now" notice with an "Open file manager" button (opens the Downloads app; Android cannot open a specific file's folder).
+
+**Known limits.** Chrome/Bitwarden do not give an edit time for CSV rows, so imported CSV entries use the import time. Spreadsheet "formula injection" (a cell starting with `=`) is deliberately not escaped in the CSV: escaping would change passwords. Other managers' formats (1Password, LastPass, Firefox, Edge) are not supported.

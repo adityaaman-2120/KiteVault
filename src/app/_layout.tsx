@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { startAutoBackup } from '@/features/backup/autoBackup';
+import { purgeExportFiles } from '@/features/transfer/exportFiles';
 import { useAutoLock } from '@/features/lock/useAutoLock';
 import {
   protectScreenCaptureAtStartup,
@@ -52,6 +53,11 @@ export default function RootLayout() {
     previousStatus.current = status;
   }, [ready, status, router]);
 
+  // A share that was interrupted must not leave a readable export in the cache.
+  useEffect(() => {
+    if (ready) purgeExportFiles();
+  }, [ready]);
+
   // Automatic cloud backup (does nothing unless the user turned it on).
   useEffect(() => (ready ? startAutoBackup() : undefined), [ready]);
 
@@ -87,6 +93,8 @@ export default function RootLayout() {
           <Stack.Screen name="entry/edit/[id]" options={{ title: 'Edit entry' }} />
           <Stack.Screen name="trash" options={{ title: 'Trash' }} />
           <Stack.Screen name="folders" options={{ title: 'Folders' }} />
+          <Stack.Screen name="import" options={{ title: 'Import passwords' }} />
+          <Stack.Screen name="export" options={{ title: 'Export' }} />
           <Stack.Screen name="backup-conflict" options={{ title: 'Backup conflict' }} />
           <Stack.Screen name="backup-history" options={{ title: 'Backup history' }} />
           <Stack.Screen name="change-password" options={{ title: 'Change master password' }} />
