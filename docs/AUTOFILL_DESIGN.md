@@ -1,6 +1,6 @@
 # KiteVault Android autofill: design
 
-Status: **proposal, no code written.** Written 2026-10-22 for review. Nothing here is implemented until it is approved.
+Status: **approved on 2026-10-22 with all recommendations (Q1 to Q9 as recommended in section 0 and 13).** No code written yet. Implementation follows the order in section 15, one step at a time.
 
 This document answers: how KiteVault can fill and save logins in Chrome and other apps without weakening the rules in `CLAUDE.md`, and what could go wrong.
 
