@@ -80,13 +80,17 @@ export function startAutoBackup(): () => void {
       isCloudBackupAvailable() &&
       settings().backupEnabled &&
       settings().backupAuto &&
-      !useBackupState.getState().conflict &&
+      useBackupState.getState().conflict === null &&
       useBackupState.getState().busy !== 'deleting',
     isPending: () => settings().backupPending,
     markPending: () => {
-      // Only when backup is on: otherwise nobody needs the flag.
-      if (isCloudBackupAvailable() && settings().backupEnabled && !settings().backupPending) {
-        void settings().update({ backupPending: true });
+      // Only when backup is on: otherwise nobody needs the flag. Every save is a new revision of
+      // the vault; the number only ever goes up and is how a newer cloud version is told apart.
+      if (isCloudBackupAvailable() && settings().backupEnabled) {
+        void settings().update({
+          backupPending: true,
+          backupLocalRevision: settings().backupLocalRevision + 1,
+        });
       }
     },
     run: () => backupNow(),

@@ -409,3 +409,28 @@ The sensitive scopes that would trigger a review (for example full `drive`) are 
 - Keep the declared permissions in line: the release manifest requests `INTERNET`, `USE_BIOMETRIC`, `USE_FINGERPRINT`, `VIBRATE` and `DETECT_SCREEN_CAPTURE`; backup added none (checked in the merged manifest).
 
 **Not verified.** The Google sign-in dialog, the Drive permission screen, real token expiry and the Google Cloud setup could not be run here. Everything above the Google library is tested against a pretend Google and Drive (`__support__/fakeGoogle.ts`), including the exact URLs, headers and request bodies; the native library compiles under Gradle.
+
+## Backup versions, conflicts, merge and history
+
+**Versions.** Up to 5 versions are kept in the hidden app folder, each a separate file with the same name and labels in Drive "app properties": `revision`, `deviceId`, `deviceName` (plain labels, not secret; the time is Drive's own `createdTime`/`modifiedTime`). After every upload the oldest beyond 5 are deleted (a failure to tidy up does not fail the backup).
+
+- **Deviation worth knowing:** an _automatic_ backup made by the same phone within 30 minutes of that phone's newest version replaces that version instead of adding one. Otherwise a few bursts of editing would push every older version out of the five slots within minutes. Manual backups, "keep this device's version", merges and safety copies always add a version.
+- **Device name** is the phone model plus 4 characters of a random per-install id (`Pixel 8 (a3f9)`). The name the user gave the phone is deliberately not used: labels are not encrypted and that name often holds a real name. The id is random, not the Android id, and lives in `settings.json`.
+
+**Revision number.** `backupLocalRevision` goes up by one on every save of the vault file while backup is on (never down). Each upload is labelled with it. `backupRemoteId/Modified/Revision` remember the cloud version this phone last uploaded or downloaded ("seen").
+
+**Before every upload** (`compareWithCloud`, a pure function): the newest cloud version is compared with "seen".
+
+- same file, same modified time, same revision: safe to upload;
+- never seen (new install, other vault): conflict `unrelated`;
+- changed since seen and this phone has no newer revision: `remote-ahead`; and with local edits too: `diverged`. Both stop the upload, nothing is overwritten and the Settings card shows "Resolve";
+- cloud modified time _older_ than seen (a newer version was deleted): not a conflict, uploading only restores it.
+  Automatic uploads stay blocked while a conflict is open.
+
+**Conflict choices.** _Keep this device's version_ uploads as a new version (theirs stays in history). _Use cloud version_ replaces the local vault; it needs the cloud version's master password (it may have been changed elsewhere), is verified by decrypting before anything changes, and removes the biometric key if the vault key changed. _Merge_ decrypts the cloud copy in memory (same password check), merges, saves locally, uploads the result as a new version with a revision above both.
+
+**Merge rules** (`src/vault/merge.ts`, 32 tests): by entry id; newest `updatedAt` wins (tie: this phone). If both phones changed the entry since the last time they agreed (`backupLastAt`) and the content differs, the loser is kept as an extra "(conflicting copy)" entry (deterministic id, so merging twice does not duplicate). Password histories are combined. Deleted on one side: an edit made after the deletion wins (entry stays alive); otherwise it stays in the Trash with the newest content, never erased. Folders are unioned by id. Settings are not merged. **Known limit:** an entry removed from the Trash for good on one phone comes back from the other (nothing is ever silently deleted, by design); both vaults must have the same data version.
+
+**History.** Lists the versions (time, phone, revision). Restoring needs that version's master password (checked first). If this phone has changes the cloud lacks, the current vault is uploaded as a new version first, so a restore can be undone.
+
+**Not verified here:** real Drive behaviour of app properties (the 124-byte limit is respected and tested against the fake) and clock skew between phones (Drive's own times are used for comparing cloud versions, but entry `updatedAt` comes from each phone's clock, so a phone with a wrong clock can win or lose a merge unfairly).

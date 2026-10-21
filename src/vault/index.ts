@@ -9,6 +9,7 @@ export {
   getVaultKeyCopy,
   isVaultUnlocked,
   lockVault,
+  readBackupData,
   recoverVault,
   restoreVaultFromBackup,
   removeRecoveryKey,
@@ -42,3 +43,4 @@ export {
   RECOVERY_KEY_CHARACTERS,
   RecoveryKeyFormatError,
 } from './recoveryKey';
+export { mergeVaults, type MergeOptions, type MergeResult, type MergeSummary } from './merge';

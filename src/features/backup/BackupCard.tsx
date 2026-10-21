@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Alert, Text, View } from 'react-native';
 
@@ -14,14 +15,25 @@ import {
   setAutoBackup,
   signOutOfBackup,
 } from './backupService';
-import { useBackupState } from './backupState';
+import { useBackupState, type ConflictInfo } from './backupState';
 import { isCloudBackupAvailable } from './config';
 import { BackupError, describeBackupError } from './errors';
 
 export const BACKUP_PRIVACY =
   'Your vault is encrypted on this phone before it is uploaded. Google, and anyone who gets into your Google account, only ever sees the encrypted file. Signing in with Google alone cannot open it: your master password is still needed.';
 
+export function conflictSummary(conflict: ConflictInfo): string {
+  if (conflict.relation === 'unrelated') {
+    return 'Your Google Drive holds a backup that this phone has not seen.';
+  }
+  const from = conflict.remote.deviceName ? ` by ${conflict.remote.deviceName}` : '';
+  return conflict.relation === 'diverged'
+    ? `The backup was changed${from} and this phone has changes of its own.`
+    : `The backup was changed${from} since this phone last looked.`;
+}
+
 export function BackupCard() {
+  const router = useRouter();
   const { colors, spacing, typography } = useTheme();
   const enabled = useSettingsStore((s) => s.backupEnabled);
   const auto = useSettingsStore((s) => s.backupAuto);
@@ -60,21 +72,6 @@ export function BackupCard() {
         fail(e);
       }
     }
-  }
-
-  function confirmReplace() {
-    Alert.alert(
-      'Replace the cloud backup?',
-      'The backup in your Google Drive will be overwritten with the vault on this phone. Only do this if this phone has the vault you want to keep.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Replace',
-          style: 'destructive',
-          onPress: () => void backupNow({ force: true }).catch(fail),
-        },
-      ],
-    );
   }
 
   function confirmDelete() {
@@ -142,13 +139,9 @@ export function BackupCard() {
       {conflict ? (
         <View style={{ gap: spacing.sm }}>
           <Text accessibilityRole="alert" style={[typography.body, { color: colors.warning }]}>
-            {describeBackupError(new BackupError('conflict'))} Nothing was overwritten.
+            {conflictSummary(conflict)} Nothing was overwritten.
           </Text>
-          <Button
-            title="Replace the cloud backup with this phone"
-            variant="danger"
-            onPress={confirmReplace}
-          />
+          <Button title="Resolve" onPress={() => router.push('/backup-conflict')} />
         </View>
       ) : null}
 
@@ -171,6 +164,12 @@ export function BackupCard() {
         }
         loading={busy === 'backing-up'}
         disabled={working && busy !== 'backing-up'}
+      />
+      <Button
+        title="Backup history"
+        variant="secondary"
+        onPress={() => router.push('/backup-history')}
+        disabled={working}
       />
       <Button
         title="Sign out"

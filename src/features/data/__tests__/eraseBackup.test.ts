@@ -39,6 +39,8 @@ test('erasing the vault signs out of Google and forgets the backup settings, but
     backupLastAt: 0,
     backupRemoteId: '',
     backupRemoteModified: '',
+    backupRemoteRevision: 0,
+    backupLocalRevision: 0,
   });
   expect(useSettingsStore.getState()).toMatchObject(DEFAULT_APP_SETTINGS);
   expect(testDrive.files.size).toBe(1); // the backup stays in Google Drive, as the Data note says

@@ -22,7 +22,7 @@ export async function setUpBackupEnv(): Promise<void> {
   resetVaultFiles();
   deleteJsonFile(SETTINGS_FILE);
   useSettingsStore.setState(DEFAULT_APP_SETTINGS);
-  useBackupState.setState({ email: null, busy: 'idle', error: null, conflict: false });
+  useBackupState.setState({ email: null, busy: 'idle', error: null, conflict: null });
   resetFakes();
   globalThis.fetch = testDrive.fetch as unknown as typeof fetch;
 
@@ -40,6 +40,8 @@ export const backupSettings = () => {
     backupLastAt,
     backupRemoteId,
     backupRemoteModified,
+    backupRemoteRevision,
+    backupLocalRevision,
   } = useSettingsStore.getState();
   return {
     backupEnabled,
@@ -48,6 +50,8 @@ export const backupSettings = () => {
     backupLastAt,
     backupRemoteId,
     backupRemoteModified,
+    backupRemoteRevision,
+    backupLocalRevision,
   };
 };
 

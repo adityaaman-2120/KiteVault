@@ -11,6 +11,8 @@ type StoredFile = {
   parents: string[];
   bytes: Uint8Array;
   modifiedTime: string;
+  createdTime: string;
+  appProperties: Record<string, string>;
 };
 type Failure = { status: number; reason?: string };
 
@@ -23,6 +25,12 @@ export type RecordedRequest = {
 };
 
 const encoder = new TextEncoder();
+
+// Drive allows 124 bytes for a property's name and value together.
+const validProperties = (properties: Record<string, string>) =>
+  Object.entries(properties).every(
+    ([key, value]) => new TextEncoder().encode(key + value).length <= 124,
+  );
 const decoder = new TextDecoder();
 
 function indexOf(haystack: Uint8Array, needle: Uint8Array, from = 0): number {
@@ -68,16 +76,27 @@ export function createFakeDrive() {
       return new Date(clock).toISOString();
     },
     // Another phone uploads a backup.
-    putFile(bytes: Uint8Array, name = 'kitevault-backup.kvlt'): StoredFile {
+    // Another phone (or an older app version) uploads a backup.
+    putFile(
+      bytes: Uint8Array,
+      appProperties: Record<string, string> = {},
+      name = 'kitevault-backup.kvlt',
+    ): StoredFile {
+      const time = drive.tick();
       const file = {
         id: `file-${nextId++}`,
         name,
         parents: ['appDataFolder'],
         bytes,
-        modifiedTime: drive.tick(),
+        modifiedTime: time,
+        createdTime: time,
+        appProperties,
       };
       files.set(file.id, file);
       return file;
+    },
+    newest(): StoredFile {
+      return [...files.values()].sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime))[0]!;
     },
     expireToken(next = `token-${nextId++}`) {
       drive.validToken = next;
@@ -128,6 +147,8 @@ export function createFakeDrive() {
       const view = (f: StoredFile) => ({
         id: f.id,
         modifiedTime: f.modifiedTime,
+        createdTime: f.createdTime,
+        appProperties: f.appProperties,
         size: String(f.bytes.length),
       });
       const method = recorded.method;
@@ -139,7 +160,8 @@ export function createFakeDrive() {
         const name = /name = '([^']+)'/.exec(parsed.searchParams.get('q') ?? '')?.[1];
         const found = [...files.values()]
           .filter((f) => f.name === name)
-          .sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime));
+          .sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime))
+          .slice(0, Number(parsed.searchParams.get('pageSize') ?? 100));
         return reply(200, { files: found.map(view) });
       }
       // create (multipart)
@@ -148,14 +170,22 @@ export function createFakeDrive() {
         if (!boundary || !body) return fail(400, 'badRequest');
         const { metadata, content } = parseMultipart(body, boundary);
         if (JSON.stringify(metadata.parents) !== '["appDataFolder"]') return fail(403, 'forbidden');
-        const file = drive.putFile(content, String(metadata.name));
+        const properties = (metadata.appProperties ?? {}) as Record<string, string>;
+        if (!validProperties(properties)) return fail(400, 'badRequest');
+        const file = drive.putFile(content, properties, String(metadata.name));
         return reply(200, view(file));
       }
-      // update (media)
+      // update (multipart: new content and new labels together)
       if (method === 'PATCH' && idMatch && parsed.pathname.startsWith('/upload/drive/v3/files/')) {
         const file = files.get(decodeURIComponent(idMatch[1]!));
         if (!file) return fail(404, 'notFound');
-        file.bytes = body ?? new Uint8Array();
+        const boundary = /boundary=(.+)$/.exec(recorded.contentType ?? '')?.[1];
+        if (!boundary || !body) return fail(400, 'badRequest');
+        const { metadata, content } = parseMultipart(body, boundary);
+        const properties = (metadata.appProperties ?? {}) as Record<string, string>;
+        if (!validProperties(properties)) return fail(400, 'badRequest');
+        file.bytes = content;
+        file.appProperties = { ...file.appProperties, ...properties };
         file.modifiedTime = drive.tick();
         return reply(200, view(file));
       }

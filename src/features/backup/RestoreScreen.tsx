@@ -22,7 +22,7 @@ import { BackupError, describeBackupError } from './errors';
 export const RESTORE_NOTICE =
   'Signing in with Google only finds your encrypted backup. It cannot open your vault. You need your master password to decrypt it.';
 
-function describeError(error: unknown): string {
+export function describeError(error: unknown): string {
   if (error instanceof LockoutError) {
     return `Too many wrong attempts. Try again in ${formatWait(error.remainingMs)}.`;
   }

@@ -12,6 +12,10 @@ import { BackupError } from '../errors';
 import { testDrive, testGoogle } from '../__support__/fakeGoogle';
 import { backupSettings, setUpBackupEnv, tearDownBackupEnv } from '../__support__/backupTestEnv';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+}));
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: { expoConfig: { extra: { cloudBackup: { enabled: true, webClientId: '' } } } },
@@ -92,19 +96,19 @@ describe('when backup is off', () => {
     expect(await screen.findByText(/Nothing was overwritten/)).toBeTruthy();
     expect(testDrive.only().bytes).toEqual(new Uint8Array([7, 7, 7]));
 
-    await fireEvent.press(button('Replace the cloud backup with this phone'));
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Replace the cloud backup?',
-      expect.any(String),
-      expect.any(Array),
-    );
-    expect(testDrive.only().bytes).toEqual(new Uint8Array([7, 7, 7])); // not until confirmed
-    confirm('Replace');
-    await waitFor(async () => expect(testDrive.only().bytes).toEqual(await vaultFile().bytes()));
+    await fireEvent.press(button('Resolve'));
+    expect(mockPush).toHaveBeenCalledWith('/backup-conflict');
   });
 });
 
 describe('when backup is on', () => {
+  test('opens the backup history', async () => {
+    await backedUp();
+    await render(<BackupCard />);
+    await fireEvent.press(button('Backup history'));
+    expect(mockPush).toHaveBeenCalledWith('/backup-history');
+  });
+
   test('shows the account and when the last backup was made', async () => {
     await backedUp();
     await render(<BackupCard />);

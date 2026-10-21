@@ -263,9 +263,10 @@ describe('wired into the app (real saves, pretend Drive)', () => {
   test('a conflict stops automatic uploads instead of overwriting the other backup', async () => {
     testDrive.only().bytes = new Uint8Array([4, 4]); // another phone changed it
     testDrive.only().modifiedTime = testDrive.tick();
+    testDrive.only().appProperties = { revision: '9', deviceId: 'zz', deviceName: 'Other (zz)' };
     await save('x');
     await jest.advanceTimersByTimeAsync(AUTO_BACKUP_DEBOUNCE_MS);
-    expect(useBackupState.getState().conflict).toBe(true);
+    expect(useBackupState.getState().conflict).not.toBeNull();
     expect(testDrive.only().bytes).toEqual(new Uint8Array([4, 4]));
 
     testDrive.fetch.mockClear();

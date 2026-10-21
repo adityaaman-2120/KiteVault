@@ -87,6 +87,8 @@ export default function RootLayout() {
           <Stack.Screen name="entry/edit/[id]" options={{ title: 'Edit entry' }} />
           <Stack.Screen name="trash" options={{ title: 'Trash' }} />
           <Stack.Screen name="folders" options={{ title: 'Folders' }} />
+          <Stack.Screen name="backup-conflict" options={{ title: 'Backup conflict' }} />
+          <Stack.Screen name="backup-history" options={{ title: 'Backup history' }} />
           <Stack.Screen name="change-password" options={{ title: 'Change master password' }} />
           <Stack.Screen name="recovery-key" options={{ title: 'Recovery key' }} />
           <Stack.Screen name="about" options={{ title: 'About' }} />

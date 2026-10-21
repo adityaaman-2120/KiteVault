@@ -29,6 +29,8 @@ type VaultState = {
   recover: (recoveryKey: string, newPassword: string) => Promise<void>;
   // Opens a vault downloaded from a cloud backup (see restoreVaultFromBackup).
   restore: (backup: Uint8Array, masterPassword: string) => Promise<void>;
+  // Swaps the vault on this phone for a downloaded backup (conflict screen, backup history).
+  replaceWithBackup: (backup: Uint8Array, masterPassword: string) => Promise<void>;
   lock: () => void;
   // Replaces the vault contents and writes them to disk.
   save: (data: VaultData) => Promise<void>;
@@ -71,6 +73,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   async restore(backup, masterPassword) {
     const data = await restoreVaultFromBackup(backup, masterPassword);
+    set({ data });
+    useSessionStore.getState().setStatus('unlocked');
+  },
+
+  async replaceWithBackup(backup, masterPassword) {
+    const data = await restoreVaultFromBackup(backup, masterPassword, { replaceExisting: true });
     set({ data });
     useSessionStore.getState().setStatus('unlocked');
   },

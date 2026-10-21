@@ -16,6 +16,13 @@ export type AppSettings = {
   backupLastAt: number; // epoch ms of the last successful upload, 0 = never
   backupRemoteId: string; // Drive file this phone last uploaded to ('' = none)
   backupRemoteModified: string; // that file's modifiedTime after our upload ('' = none)
+  backupRemoteRevision: number; // that file's vault revision
+  // Counts every change to the vault file while backup is on. Only ever goes up, except when this
+  // phone adopts a cloud version (then it takes that version's number).
+  backupLocalRevision: number;
+  // Random id of this phone, so backup versions can say which phone made them. Not the Android
+  // id or any hardware id.
+  backupDeviceId: string;
 };
 
 export const BACKGROUND_LOCK_OPTIONS = [
@@ -52,9 +59,15 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   backupLastAt: 0,
   backupRemoteId: '',
   backupRemoteModified: '',
+  backupRemoteRevision: 0,
+  backupLocalRevision: 0,
+  backupDeviceId: '',
 };
 
 export const SETTINGS_FILE = 'settings.json';
+
+const wholeNumber = (value: unknown): number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 0;
 
 // Unknown or invalid values fall back to the defaults field by field.
 export function parseAppSettings(raw: unknown): AppSettings {
@@ -87,5 +100,11 @@ export function parseAppSettings(raw: unknown): AppSettings {
       typeof value.backupRemoteId === 'string' ? value.backupRemoteId.slice(0, 200) : '',
     backupRemoteModified:
       typeof value.backupRemoteModified === 'string' ? value.backupRemoteModified.slice(0, 64) : '',
+    backupRemoteRevision: wholeNumber(value.backupRemoteRevision),
+    backupLocalRevision: wholeNumber(value.backupLocalRevision),
+    backupDeviceId:
+      typeof value.backupDeviceId === 'string' && /^[0-9a-f]{1,64}$/.test(value.backupDeviceId)
+        ? value.backupDeviceId
+        : '',
   };
 }

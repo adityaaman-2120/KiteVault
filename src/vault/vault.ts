@@ -479,41 +479,78 @@ export function recoverVault(
 
 // --- restore from a cloud backup ---------------------------------------------------------------
 
+type OpenedBackup = {
+  header: VaultHeader;
+  body: Uint8Array;
+  vaultKey: Uint8Array;
+  data: VaultData;
+};
+
+// Decrypts a downloaded vault file with a master password to prove the password is right and to
+// read the data. Touches neither the session nor any file. The caller owns `vaultKey` and must
+// wipe it. Throws CORRUPTED / UNSUPPORTED_VERSION (not a usable vault) or WRONG_PASSWORD.
+async function openBackup(backup: Uint8Array, masterPassword: string): Promise<OpenedBackup> {
+  if (masterPassword.length === 0) throw wrongPassword();
+  const { header, body } = decodeVaultFile(backup); // CORRUPTED / UNSUPPORTED_VERSION
+
+  let passwordKey: Uint8Array;
+  try {
+    passwordKey = await deriveKeyFromPassword(masterPassword, header.salt, header.kdf);
+  } catch {
+    throw wrongPassword(); // an unsafe KDF setting in the file counts as unusable
+  }
+  let vaultKey: Uint8Array;
+  try {
+    vaultKey = unwrapKey(passwordKey, header.wrappedKey);
+  } catch {
+    throw wrongPassword();
+  } finally {
+    wipe(passwordKey);
+  }
+
+  let plaintext: Uint8Array | undefined;
+  try {
+    plaintext = decrypt(vaultKey, body);
+    return { header, body, vaultKey, data: parseVaultData(utf8Decode(plaintext)) };
+  } catch (error) {
+    wipe(vaultKey);
+    throw error instanceof VaultError
+      ? error
+      : new VaultError('CORRUPTED', 'The vault file is damaged.');
+  } finally {
+    wipe(plaintext);
+  }
+}
+
+// Reads the data of a downloaded backup (for merging) without changing anything on this phone.
+export function readBackupData(backup: Uint8Array, masterPassword: string): Promise<VaultData> {
+  return serialized(async () => {
+    const opened = await openBackup(backup, masterPassword);
+    wipe(opened.vaultKey);
+    return opened.data;
+  });
+}
+
 // Opens a vault file that was downloaded from a backup and, if the master password really
 // decrypts it, saves it on this phone and leaves it unlocked. The bytes are written exactly as
-// they were downloaded: nothing is decrypted or re-encrypted on the way. Refuses to run when a
-// vault already exists here, so a restore can never overwrite one.
+// they were downloaded: nothing is decrypted or re-encrypted on the way.
 //
-// Throws VAULT_EXISTS, CORRUPTED / UNSUPPORTED_VERSION (the file is not a usable vault) or
-// WRONG_PASSWORD.
+// By default it refuses to run when a vault already exists here, so a restore on a new phone can
+// never overwrite one. `replaceExisting` is for the cases where the user chose to swap the vault
+// on this phone for a cloud version (conflict screen, backup history).
+//
+// Throws VAULT_EXISTS, CORRUPTED / UNSUPPORTED_VERSION or WRONG_PASSWORD.
 export function restoreVaultFromBackup(
   backup: Uint8Array,
   masterPassword: string,
+  options: { replaceExisting?: boolean } = {},
 ): Promise<VaultData> {
   return serialized(async () => {
-    if (await vaultExists()) throw new VaultError('VAULT_EXISTS', 'A vault already exists.');
-    if (masterPassword.length === 0) throw wrongPassword();
-    const { header, body } = decodeVaultFile(backup); // CORRUPTED / UNSUPPORTED_VERSION
-
-    let passwordKey: Uint8Array;
-    try {
-      passwordKey = await deriveKeyFromPassword(masterPassword, header.salt, header.kdf);
-    } catch {
-      throw wrongPassword(); // an unsafe KDF setting in the file counts as unusable
+    if (!options.replaceExisting && (await vaultExists())) {
+      throw new VaultError('VAULT_EXISTS', 'A vault already exists.');
     }
-    let vaultKey: Uint8Array;
+    const { header, body, vaultKey, data } = await openBackup(backup, masterPassword);
     try {
-      vaultKey = unwrapKey(passwordKey, header.wrappedKey);
-    } catch {
-      throw wrongPassword();
-    } finally {
-      wipe(passwordKey);
-    }
-
-    let plaintext: Uint8Array | undefined;
-    try {
-      plaintext = decrypt(vaultKey, body);
-      const data = parseVaultData(utf8Decode(plaintext));
       await saveVaultFile(backup);
       discardSession();
       session = { vaultKey, header, data, body };
@@ -522,9 +559,7 @@ export function restoreVaultFromBackup(
       wipe(vaultKey);
       throw error instanceof VaultError
         ? error
-        : new VaultError('CORRUPTED', 'The vault file is damaged.');
-    } finally {
-      wipe(plaintext);
+        : new VaultError('CORRUPTED', 'The vault file could not be saved.');
     }
   });
 }

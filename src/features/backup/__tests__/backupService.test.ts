@@ -11,10 +11,12 @@ import {
   enableBackup,
   findCloudBackup,
   refreshSignIn,
+  resolveKeepMine,
   setAutoBackup,
   signOutOfBackup,
 } from '../backupService';
 import { useBackupState } from '../backupState';
+import type { RemoteBackup } from '../driveApi';
 import { BackupError } from '../errors';
 import { testDrive, testGoogle } from '../__support__/fakeGoogle';
 import {
@@ -38,6 +40,16 @@ jest.mock('../googleAuth', () => ({
 beforeEach(setUpBackupEnv);
 afterEach(() => jest.restoreAllMocks());
 afterAll(tearDownBackupEnv);
+
+const remoteOf = (id: string): RemoteBackup => ({
+  id,
+  modifiedTime: '',
+  createdTime: '',
+  size: 0,
+  revision: 0,
+  deviceId: '',
+  deviceName: '',
+});
 
 const signedIn = async () => {
   await enableBackup();
@@ -108,13 +120,15 @@ describe('backing up', () => {
       backupLastAt: Date.parse(result.modifiedTime),
       backupRemoteId: result.id,
       backupRemoteModified: result.modifiedTime,
+      backupRemoteRevision: 1,
       backupPending: false,
     });
   });
 
-  test('a second backup replaces the first: there is only ever one file', async () => {
+  test('an automatic backup soon after another from this phone replaces that version', async () => {
     await signedIn();
     await backupNow();
+    testDrive.only().createdTime = new Date().toISOString();
     const first = testDrive.only().id;
     await useVaultStore
       .getState()
@@ -201,17 +215,22 @@ describe('conflicts: never overwrite a backup this phone does not know about', (
     await expect(backupNow()).rejects.toMatchObject({ kind: 'conflict' });
     expect(testDrive.only().bytes).toEqual(new Uint8Array([7, 7, 7]));
     expect(testDrive.only().id).toBe(other.id);
-    expect(useBackupState.getState()).toMatchObject({ conflict: true, error: 'conflict' });
+    expect(useBackupState.getState()).toMatchObject({
+      conflict: { relation: 'unrelated', remote: { id: other.id } },
+      error: 'conflict',
+    });
     expect(backupSettings().backupPending).toBe(true);
   });
 
-  test('"replace" overwrites it on purpose', async () => {
+  test('"keep this device" adds a new version and keeps the other one', async () => {
     await signedIn();
-    testDrive.putFile(new Uint8Array([7, 7, 7]));
+    const other = testDrive.putFile(new Uint8Array([7, 7, 7]));
     await expect(backupNow()).rejects.toMatchObject({ kind: 'conflict' });
-    await backupNow({ force: true });
-    expect(testDrive.only().bytes).toEqual(await vaultFile().bytes());
-    expect(useBackupState.getState().conflict).toBe(false);
+    await resolveKeepMine();
+    expect(testDrive.files.size).toBe(2);
+    expect(testDrive.files.get(other.id)!.bytes).toEqual(new Uint8Array([7, 7, 7]));
+    expect(testDrive.newest().bytes).toEqual(await vaultFile().bytes());
+    expect(useBackupState.getState().conflict).toBeNull();
     await expect(backupNow()).resolves.toBeDefined(); // and it is trusted from now on
   });
 
@@ -220,8 +239,20 @@ describe('conflicts: never overwrite a backup this phone does not know about', (
     await backupNow();
     testDrive.only().bytes = new Uint8Array([9, 9]);
     testDrive.only().modifiedTime = testDrive.tick();
+    testDrive.only().appProperties = { revision: '5', deviceId: 'ab', deviceName: 'Other (ab)' };
     await expect(backupNow()).rejects.toMatchObject({ kind: 'conflict' });
     expect(testDrive.only().bytes).toEqual(new Uint8Array([9, 9]));
+    expect(useBackupState.getState().conflict?.relation).toBe('remote-ahead');
+  });
+
+  test('changes on this phone as well make it "diverged"', async () => {
+    await signedIn();
+    await backupNow();
+    testDrive.only().modifiedTime = testDrive.tick();
+    testDrive.only().appProperties = { revision: '5', deviceId: 'ab', deviceName: 'Other (ab)' };
+    useSettingsStore.setState({ backupLocalRevision: 4 });
+    await expect(backupNow()).rejects.toMatchObject({ kind: 'conflict' });
+    expect(useBackupState.getState().conflict?.relation).toBe('diverged');
   });
 
   test('our own earlier backup is not a conflict', async () => {
@@ -305,6 +336,8 @@ describe('signing out', () => {
       backupLastAt: 0,
       backupRemoteId: '',
       backupRemoteModified: '',
+      backupRemoteRevision: 0,
+      backupLocalRevision: 1,
     });
     expect(useBackupState.getState().email).toBeNull();
     expect(testDrive.files.size).toBe(1); // the cloud copy is untouched
@@ -377,22 +410,18 @@ describe('looking for a backup to restore', () => {
   test('downloads the exact file, but refuses something that is not a vault', async () => {
     await signedIn();
     await backupNow();
-    const good = await downloadCloudBackup({ id: testDrive.only().id, modifiedTime: '', size: 0 });
+    const good = await downloadCloudBackup(remoteOf(testDrive.only().id));
     expect(good).toEqual(await vaultFile().bytes());
 
     const junk = testDrive.putFile(new Uint8Array([1, 2, 3]));
-    await expect(
-      downloadCloudBackup({ id: junk.id, modifiedTime: '', size: 0 }),
-    ).rejects.toMatchObject({
+    await expect(downloadCloudBackup(remoteOf(junk.id))).rejects.toMatchObject({
       kind: 'invalid-backup',
     });
   });
 
   test('a file that disappeared is "not found"', async () => {
     await signedIn();
-    await expect(
-      downloadCloudBackup({ id: 'gone', modifiedTime: '', size: 0 }),
-    ).rejects.toMatchObject({
+    await expect(downloadCloudBackup(remoteOf('gone'))).rejects.toMatchObject({
       kind: 'not-found',
     });
   });

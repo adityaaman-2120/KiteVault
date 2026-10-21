@@ -78,10 +78,12 @@ export const setFavorite = (id: string, favorite: boolean, now: () => number = D
 export const moveToTrash = (id: string, now: () => number = Date.now) =>
   mutateVault((data) => replaceEntry(data, id, (e) => ({ ...e, deletedAt: now() })));
 
-export const restoreFromTrash = (id: string) =>
+// Restoring counts as a change made now, so that when two devices are merged the restore is
+// recognised as newer than the deletion.
+export const restoreFromTrash = (id: string, now: () => number = Date.now) =>
   mutateVault((data) =>
     replaceEntry(data, id, (e) => {
-      const restored = { ...e };
+      const restored = { ...e, updatedAt: now() };
       delete restored.deletedAt;
       return restored;
     }),

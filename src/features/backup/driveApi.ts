@@ -15,15 +15,49 @@ const TRANSFER_TIMEOUT_MS = 60_000;
 // A real vault is a few hundred KB at most; anything near this is not one.
 export const MAX_BACKUP_BYTES = 64 * 1024 * 1024;
 
-export type RemoteBackup = { id: string; modifiedTime: string; size: number };
+// One saved version of the vault in Drive. revision, deviceId and deviceName come from the file's
+// app properties (plain labels, not secret); a file made by an older app version has none of them.
+export type RemoteBackup = {
+  id: string;
+  modifiedTime: string;
+  createdTime: string;
+  size: number;
+  revision: number;
+  deviceId: string;
+  deviceName: string;
+};
+
+export type VersionMeta = { revision: number; deviceId: string; deviceName: string };
+
+// Drive allows 124 bytes for a property's name and value together.
+const MAX_PROPERTY_VALUE_BYTES = 100;
 
 export type DriveClient = {
+  // Every saved version, newest first.
+  list(): Promise<RemoteBackup[]>;
+  // The newest version, or null.
   find(): Promise<RemoteBackup | null>;
-  upload(bytes: Uint8Array, existingId?: string): Promise<RemoteBackup>;
+  // Saves `bytes` as a NEW version, or, with existingId, replaces the content of that version.
+  upload(bytes: Uint8Array, meta: VersionMeta, existingId?: string): Promise<RemoteBackup>;
+  // Deletes the versions beyond the newest `keep`. Returns how many were deleted.
+  prune(keep: number): Promise<number>;
   download(id: string): Promise<Uint8Array>;
   // Deletes every KiteVault backup file in the hidden folder. Returns how many were deleted.
   deleteAll(): Promise<number>;
 };
+
+// Cuts text to at most `maxBytes` of UTF-8 without splitting a character.
+export function fitBytes(text: string, maxBytes: number): string {
+  let out = '';
+  let used = 0;
+  for (const char of text) {
+    const size = utf8Encode(char).length;
+    if (used + size > maxBytes) break;
+    out += char;
+    used += size;
+  }
+  return out;
+}
 
 type FetchLike = typeof fetch;
 
@@ -118,13 +152,37 @@ export function buildMultipart(
   return { body: concat([head, content, tail]), boundary };
 }
 
+const FIELDS = 'id,modifiedTime,createdTime,size,appProperties';
+
 const parseBackup = (value: unknown): RemoteBackup => {
-  const file = value as { id?: unknown; modifiedTime?: unknown; size?: unknown };
+  const file = value as {
+    id?: unknown;
+    modifiedTime?: unknown;
+    createdTime?: unknown;
+    size?: unknown;
+    appProperties?: Record<string, unknown>;
+  };
   if (typeof file?.id !== 'string' || typeof file.modifiedTime !== 'string') {
     throw new BackupError('server');
   }
-  return { id: file.id, modifiedTime: file.modifiedTime, size: Number(file.size ?? 0) };
+  const props = file.appProperties ?? {};
+  const revision = Number(props.revision);
+  return {
+    id: file.id,
+    modifiedTime: file.modifiedTime,
+    createdTime: typeof file.createdTime === 'string' ? file.createdTime : file.modifiedTime,
+    size: Number(file.size ?? 0),
+    revision: Number.isInteger(revision) && revision > 0 ? revision : 0,
+    deviceId: typeof props.deviceId === 'string' ? props.deviceId : '',
+    deviceName: typeof props.deviceName === 'string' ? props.deviceName : '',
+  };
 };
+
+const toProperties = (meta: VersionMeta) => ({
+  revision: String(meta.revision),
+  deviceId: fitBytes(meta.deviceId, MAX_PROPERTY_VALUE_BYTES),
+  deviceName: fitBytes(meta.deviceName, MAX_PROPERTY_VALUE_BYTES),
+});
 
 export function createDriveClient(auth: GoogleAuth, fetchImpl: FetchLike = fetch): DriveClient {
   // Sends a request with a fresh token; on 401 gets a new token once and tries again.
@@ -155,9 +213,9 @@ export function createDriveClient(auth: GoogleAuth, fetchImpl: FetchLike = fetch
     const query = new URLSearchParams({
       spaces: 'appDataFolder',
       q: `name = '${BACKUP_FILE_NAME}' and trashed = false`,
-      fields: 'files(id,modifiedTime,size)',
+      fields: `files(${FIELDS})`,
       orderBy: 'modifiedTime desc',
-      pageSize: '20',
+      pageSize: '50',
     });
     const response = await request(`${API}/files?${query}`, { method: 'GET' });
     const body = (await response.json()) as { files?: unknown[] };
@@ -165,39 +223,41 @@ export function createDriveClient(auth: GoogleAuth, fetchImpl: FetchLike = fetch
   }
 
   return {
+    list,
+
     async find() {
       return (await list())[0] ?? null;
     },
 
-    async upload(bytes, existingId) {
-      const fields = 'id,modifiedTime,size';
+    async upload(bytes, meta, existingId) {
+      const properties = toProperties(meta);
+      const multipart = (metadata: object) => buildMultipart(metadata, bytes);
       if (existingId) {
         try {
+          const { body, boundary } = multipart({ appProperties: properties });
           const response = await request(
-            `${UPLOAD}/files/${encodeURIComponent(existingId)}?uploadType=media&fields=${fields}`,
+            `${UPLOAD}/files/${encodeURIComponent(existingId)}?uploadType=multipart&fields=${FIELDS}`,
             {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/octet-stream' },
-              body: bytes as unknown as BodyInit,
+              headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+              body: body as unknown as BodyInit,
             },
             TRANSFER_TIMEOUT_MS,
           );
           return parseBackup(await response.json());
         } catch (error) {
-          // The file was deleted since we looked: make a new one instead.
+          // The version was deleted since we looked: make a new one instead.
           if (!(error instanceof BackupError && error.kind === 'not-found')) throw error;
         }
       }
-      const { body, boundary } = buildMultipart(
-        {
-          name: BACKUP_FILE_NAME,
-          parents: ['appDataFolder'],
-          mimeType: 'application/octet-stream',
-        },
-        bytes,
-      );
+      const { body, boundary } = multipart({
+        name: BACKUP_FILE_NAME,
+        parents: ['appDataFolder'],
+        mimeType: 'application/octet-stream',
+        appProperties: properties,
+      });
       const response = await request(
-        `${UPLOAD}/files?uploadType=multipart&fields=${fields}`,
+        `${UPLOAD}/files?uploadType=multipart&fields=${FIELDS}`,
         {
           method: 'POST',
           headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
@@ -206,6 +266,20 @@ export function createDriveClient(auth: GoogleAuth, fetchImpl: FetchLike = fetch
         TRANSFER_TIMEOUT_MS,
       );
       return parseBackup(await response.json());
+    },
+
+    async prune(keep) {
+      const old = (await list()).slice(keep);
+      let deleted = 0;
+      for (const file of old) {
+        try {
+          await request(`${API}/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' });
+          deleted++;
+        } catch (error) {
+          if (!(error instanceof BackupError && error.kind === 'not-found')) throw error;
+        }
+      }
+      return deleted;
     },
 
     async download(id) {

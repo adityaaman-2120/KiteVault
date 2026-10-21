@@ -3,6 +3,7 @@ import { BackupError } from '../errors';
 import { parseMultipart, resetFakes, testDrive, testGoogle } from '../__support__/fakeGoogle';
 
 const client = () => createDriveClient(testGoogle, testDrive.fetch as unknown as typeof fetch);
+const meta = { revision: 1, deviceId: 'ab12cd', deviceName: 'Pixel 8 (ab12)' };
 const bytes = (...values: number[]) => Uint8Array.from(values);
 // Every byte value, including the ones that look like line breaks and dashes.
 const binary = Uint8Array.from({ length: 600 }, (_, i) => i % 256);
@@ -27,7 +28,7 @@ describe('find', () => {
   });
 
   test('only looks in the hidden app folder, by name, and never lists anything else', async () => {
-    testDrive.putFile(bytes(1), 'some-other-file');
+    testDrive.putFile(bytes(1), {}, 'some-other-file');
     expect(await client().find()).toBeNull();
     const url = new URL(testDrive.requests[0]!.url);
     expect(url.origin + url.pathname).toBe('https://www.googleapis.com/drive/v3/files');
@@ -38,7 +39,7 @@ describe('find', () => {
 
 describe('upload', () => {
   test('creates the file in the app folder with exactly the bytes given', async () => {
-    const result = await client().upload(binary);
+    const result = await client().upload(binary, meta);
     const stored = testDrive.only();
     expect(stored.bytes).toEqual(binary);
     expect(stored.parents).toEqual(['appDataFolder']);
@@ -47,7 +48,7 @@ describe('upload', () => {
   });
 
   test('is a single request that creates the file and its content together', async () => {
-    await client().upload(binary);
+    await client().upload(binary, meta);
     expect(testDrive.requests).toHaveLength(1);
     const request = testDrive.requests[0]!;
     expect(request.method).toBe('POST');
@@ -55,8 +56,8 @@ describe('upload', () => {
   });
 
   test('uploading again with the file id replaces the content of the same file', async () => {
-    const first = await client().upload(bytes(1, 2, 3));
-    const second = await client().upload(bytes(9, 9), first.id);
+    const first = await client().upload(bytes(1, 2, 3), meta);
+    const second = await client().upload(bytes(9, 9), meta, first.id);
     expect(testDrive.files.size).toBe(1);
     expect(testDrive.only().bytes).toEqual(bytes(9, 9));
     expect(second.id).toBe(first.id);
@@ -65,17 +66,62 @@ describe('upload', () => {
   });
 
   test('if the file was deleted meanwhile, it makes a new one', async () => {
-    const result = await client().upload(bytes(5), 'file-that-is-gone');
+    const result = await client().upload(bytes(5), meta, 'file-that-is-gone');
     expect(testDrive.only().bytes).toEqual(bytes(5));
     expect(result.id).not.toBe('file-that-is-gone');
   });
 
   test('only ever talks to the Drive API on googleapis.com', async () => {
     await client().find();
-    await client().upload(bytes(1));
+    await client().upload(bytes(1), meta);
     for (const request of testDrive.requests) {
       expect(new URL(request.url).origin).toBe('https://www.googleapis.com');
     }
+  });
+});
+
+describe('versions', () => {
+  test('labels each version with revision, device and time', async () => {
+    const result = await client().upload(bytes(1), meta);
+    expect(testDrive.only().appProperties).toEqual({
+      revision: '1',
+      deviceId: 'ab12cd',
+      deviceName: 'Pixel 8 (ab12)',
+    });
+    expect(result).toMatchObject({ revision: 1, deviceId: 'ab12cd', deviceName: 'Pixel 8 (ab12)' });
+    expect(Date.parse(result.createdTime)).not.toBeNaN();
+  });
+
+  test('uploads without an id add versions; list returns newest first', async () => {
+    const a = await client().upload(bytes(1), meta);
+    const b = await client().upload(bytes(2), { ...meta, revision: 2 });
+    expect(testDrive.files.size).toBe(2);
+    expect((await client().list()).map((v) => v.id)).toEqual([b.id, a.id]);
+  });
+
+  test('replacing in place updates the labels too', async () => {
+    const a = await client().upload(bytes(1), meta);
+    await client().upload(bytes(2), { ...meta, revision: 7 }, a.id);
+    expect(testDrive.only().appProperties.revision).toBe('7');
+  });
+
+  test('prune keeps only the newest versions', async () => {
+    for (let i = 1; i <= 7; i++) await client().upload(bytes(i), { ...meta, revision: i });
+    expect(await client().prune(5)).toBe(2);
+    expect(testDrive.files.size).toBe(5);
+    expect((await client().list()).map((v) => v.revision)).toEqual([7, 6, 5, 4, 3]);
+    expect(await client().prune(5)).toBe(0);
+  });
+
+  test('a very long device name is cut to fit the 124-byte limit', async () => {
+    await client().upload(bytes(1), { ...meta, deviceName: 'é'.repeat(200) });
+    const name = testDrive.only().appProperties.deviceName!;
+    expect(new TextEncoder().encode('deviceName' + name).length).toBeLessThanOrEqual(124);
+  });
+
+  test('a file without labels (older app) has revision 0', async () => {
+    testDrive.putFile(bytes(1));
+    expect(await client().find()).toMatchObject({ revision: 0, deviceId: '', deviceName: '' });
   });
 });
 
@@ -138,7 +184,7 @@ describe('deleteAll', () => {
   test('deletes every backup file, including duplicates, and nothing else', async () => {
     testDrive.putFile(bytes(1));
     testDrive.putFile(bytes(2));
-    testDrive.putFile(bytes(3), 'unrelated');
+    testDrive.putFile(bytes(3), {}, 'unrelated');
     expect(await client().deleteAll()).toBe(2);
     expect([...testDrive.files.values()].map((f) => f.name)).toEqual(['unrelated']);
   });
@@ -172,7 +218,7 @@ describe('expired sign-in tokens', () => {
 
   test('uploads survive an expired token too', async () => {
     testDrive.expireToken('token-2');
-    await client().upload(binary);
+    await client().upload(binary, meta);
     expect(testDrive.only().bytes).toEqual(binary);
   });
 
@@ -213,7 +259,7 @@ describe('errors', () => {
   test('no internet becomes "offline"', async () => {
     testDrive.offline = true;
     await expect(client().find()).rejects.toMatchObject({ kind: 'offline' });
-    await expect(client().upload(bytes(1))).rejects.toMatchObject({ kind: 'offline' });
+    await expect(client().upload(bytes(1), meta)).rejects.toMatchObject({ kind: 'offline' });
     await expect(client().download('x')).rejects.toMatchObject({ kind: 'offline' });
   });
 

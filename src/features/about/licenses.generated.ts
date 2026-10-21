@@ -87,6 +87,13 @@ export const LICENSES: LicenseEntry[] = [
     text: 3,
   },
   {
+    name: 'expo-device',
+    version: '58.0.5',
+    license: 'MIT',
+    url: 'https://github.com/expo/expo',
+    text: 3,
+  },
+  {
     name: 'expo-file-system',
     version: '58.0.10',
     license: 'MIT',
