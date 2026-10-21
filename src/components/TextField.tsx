@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { useTheme } from '@/theme';
+import { markActivity } from '@/utils/activity';
 
 type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
   label: string;
@@ -33,6 +34,10 @@ export function TextField({ label, secret = false, ...inputProps }: Props) {
           spellCheck={false}
           {...inputProps}
           accessibilityLabel={label}
+          onChangeText={(text) => {
+            markActivity(); // typing counts as activity for the inactivity timer
+            inputProps.onChangeText?.(text);
+          }}
           secureTextEntry={secret && !revealed}
           // Keep secrets out of keyboard suggestions and autofill.
           autoComplete={secret ? 'off' : inputProps.autoComplete}

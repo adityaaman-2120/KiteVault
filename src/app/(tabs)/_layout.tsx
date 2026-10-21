@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 
+import { LockButton } from '@/features/lock/LockButton';
 import { useTheme } from '@/theme';
 
 export default function TabsLayout() {
@@ -20,7 +21,7 @@ export default function TabsLayout() {
         tabBarIcon: () => null,
       }}
     >
-      <Tabs.Screen name="vault" options={{ title: 'Vault' }} />
+      <Tabs.Screen name="vault" options={{ title: 'Vault', headerRight: () => <LockButton /> }} />
       <Tabs.Screen name="generator" options={{ title: 'Generator' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>

@@ -130,3 +130,28 @@ Limits: `expo-file-system` has no fsync, so after a sudden power loss the operat
 - **Memory:** the typed password lives in React state, which is a JavaScript string and cannot be zeroed (see the memory-wiping limits above). It is released when the screen unmounts after a successful create.
 - **App start:** the root layout now calls `useVaultStore.initialize()` before showing any screen (the splash screen stays up meanwhile), so an existing vault opens on the unlock screen instead of the welcome flow.
 - **Settings > Lock vault** now calls the real `lock()` (wipes keys and decrypted data) instead of just changing the route status. The unlock screen is still a placeholder that does not check a password; it is replaced in the next step.
+
+---
+
+### 2026-10-21: Locking, unlock attempts, and auto-lock
+
+**Unlock attempts** (`src/features/lock/attemptPolicy.ts`, `unlockService.ts`)
+
+- The first 4 wrong passwords have no delay. From the 5th on, the wait before the next try is 30 s, then 1, 2, 4, 8 minutes, and 15 minutes from the 10th on. A successful unlock resets the count. Wrong password is the only error that counts; a missing or damaged vault file does not.
+- All unlock attempts go through `unlockWithAttemptLimit`. It counts the attempt **before** checking the password, so killing the app mid-check does not give a free guess.
+- The counter is a small JSON file (`unlock-attempts.json`) in the app-private folder, so closing or force-stopping the app does not reset it. A moved-back clock cannot shorten a wait (an earlier "last failure" time than now is treated as a full wait).
+- **Honest limits:** this slows down guessing _on the phone through the app_. Someone who can read the app's private folder (a rooted phone or a malicious build of the app) can delete the file, and could instead copy `vault.kvlt` and guess offline, where only Argon2id and password strength protect the vault. We did not use the Android Keystore for the counter because it would not change that: whoever can delete the vault's neighbour files can also delete a keystore entry. Setting the phone's clock forward shortens a wait; there is no trusted clock offline.
+
+**Auto-lock** (`src/features/lock/autoLock.ts`, `useAutoLock.ts`)
+
+- Timing rules are a small pure module with an injected clock and timers, so every rule is unit-tested without React Native. The hook connects it to `AppState`, touches and typing.
+- **Leaving the app:** lock after Immediately / 30 s / 1 min / 5 min (default 30 s). Android may pause JS timers in the background, so on return the app compares clock times and locks if the timeout has passed (or if the clock went backwards). Time away is measured from the first non-active state, so `inactive` followed by `background` is not double counted.
+- **Inactivity while open:** lock after 1 / 2 / 5 / 10 / 15 minutes (default 5) with no touch or typing. Any touch anywhere (a passive `onTouchStart` on the root view) or a keystroke in any `TextField` resets the timer. Reading without touching the screen for the full period will lock; long hardware-keyboard-only or voice input outside a `TextField` is not detected.
+- **Closing the app:** decrypted data exists only in memory, so killing the process wipes it, and the next launch always starts at the unlock screen (`initialize()` sets "locked" when a vault file exists). There is no separate code path to get wrong.
+- **What locking does** (`useVaultStore.lock`): sets the store's `data` to `null`, zeroes the vault key, empties the decrypted data object, and sets the route status to "locked". The root layout then replaces the screen with `/unlock`; the route guard removes the vault screens from the navigation stack.
+- Settings that change while the vault is open apply from the next event (the config is read when each timer starts).
+- The vault file's own `settings.autoLockSeconds` field (inside the encrypted data) is **not used**; lock preferences live in the plain settings file below so they are available before unlock. It can be removed when the data format next changes.
+
+**App settings file** (`settings.json`, app-private folder, not encrypted)
+
+Holds only `backgroundLockSeconds` and `inactivityLockMinutes`. Invalid or missing values fall back to defaults field by field. It is written non-atomically because losing it only resets two preferences. Because it is not encrypted or authenticated, someone with file access could set the timeouts to the most permissive allowed values; the options are limited to the lists above (no "never").

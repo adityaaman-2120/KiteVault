@@ -1,35 +1,50 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 
+import { useAutoLock } from '@/features/lock/useAutoLock';
 import { useSessionStore } from '@/features/session/useSessionStore';
+import { useSettingsStore } from '@/features/settings/useSettingsStore';
 import { useTheme } from '@/theme';
+import { markActivity } from '@/utils/activity';
 import { useVaultStore } from '@/vault';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const router = useRouter();
   const status = useSessionStore((s) => s.status);
   const { colors } = useTheme();
   const [ready, setReady] = useState(false);
+  const previousStatus = useRef(status);
 
-  // Find out whether a vault file already exists before choosing the first screen.
+  useAutoLock();
+
+  // Load preferences and find out whether a vault already exists before choosing the first screen.
   useEffect(() => {
-    useVaultStore
-      .getState()
-      .initialize()
-      .catch(() => {}) // on failure we stay on the welcome flow; creating will re-check
+    Promise.all([useSettingsStore.getState().load(), useVaultStore.getState().initialize()])
+      .catch(() => {}) // on failure we use defaults and stay on the welcome flow; creating re-checks
       .finally(() => {
         setReady(true);
         SplashScreen.hideAsync();
       });
   }, []);
 
+  // When an unlocked vault becomes locked (button, timeout, background), go to the unlock screen.
+  useEffect(() => {
+    if (ready && previousStatus.current === 'unlocked' && status === 'locked') {
+      router.replace('/unlock');
+    }
+    previousStatus.current = status;
+  }, [ready, status, router]);
+
   if (!ready) return null;
 
   return (
-    <>
+    // Observes touches (without handling them) so inactivity can be measured.
+    <View style={{ flex: 1 }} onTouchStart={markActivity}>
       <StatusBar style="auto" />
       <Stack
         screenOptions={{
@@ -53,6 +68,6 @@ export default function RootLayout() {
           <Stack.Screen name="entry/[id]" options={{ title: 'Entry' }} />
         </Stack.Protected>
       </Stack>
-    </>
+    </View>
   );
 }
