@@ -25,6 +25,9 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.0",
+    "react-native-nitro-modules": "0.37.1",
+    "react-native-quick-base64": "3.0.1",
+    "react-native-quick-crypto": "1.1.8",
     "react-native-safe-area-context": "~5.10.1",
     "react-native-screens": "~4.30.0",
     "zustand": "^5.0.15"
@@ -32,6 +35,7 @@
   "devDependencies": {
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "eslint": "^9.39.5",
     "eslint-config-expo": "^58.0.4",
@@ -46,6 +50,9 @@
     "preset": "jest-expo",
     "setupFilesAfterEnv": [
       "@testing-library/react-native/matchers"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^react-native-quick-crypto$": "<rootDir>/jest/quick-crypto-node.js"
+    }
   }
 }
