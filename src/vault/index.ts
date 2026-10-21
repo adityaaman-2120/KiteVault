@@ -13,9 +13,11 @@ export {
 } from './vault';
 export {
   createEmptyVaultData,
+  type CardDetails,
   type CustomField,
   type Entry,
   type EntryType,
+  type IdentityDetails,
   type Folder,
   type PasswordHistoryItem,
   type VaultData,

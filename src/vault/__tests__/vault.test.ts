@@ -190,6 +190,31 @@ describe('lockVault', () => {
     expect(withEntry.entries).toEqual([]);
   });
 
+  test('also scrubs card and identity details and password history', async () => {
+    const created = await createVault(PASSWORD, { kdfParams: FAST_KDF });
+    const card = {
+      holder: 'H',
+      number: '4242424242424242',
+      expiry: '09/28',
+      cvv: '123',
+      pin: '1234',
+    };
+    const identity = { fullName: 'Pat', email: 'p@example.com', phone: '1', address: 'x' };
+    const withDetails = withEntries(created, makeEntry({ card, identity }));
+    await saveVault(withDetails);
+    const kept = {
+      card: withDetails.entries[0]!.card!,
+      identity: withDetails.entries[0]!.identity!,
+      entry: withDetails.entries[0]!,
+    };
+
+    lockVault();
+
+    expect(Object.values(kept.card).every((v) => v === '')).toBe(true);
+    expect(Object.values(kept.identity).every((v) => v === '')).toBe(true);
+    expect(kept.entry.passwordHistory).toEqual([]);
+  });
+
   test('is safe to call when already locked', () => {
     expect(() => lockVault()).not.toThrow();
   });

@@ -56,6 +56,14 @@ function scrub(data: VaultData): void {
     entry.notes = '';
     entry.customFields.length = 0;
     entry.passwordHistory.length = 0;
+    // Card and identity details are blanked field by field.
+    for (const details of [entry.card, entry.identity]) {
+      if (!details) continue;
+      const fields = details as Record<string, string>;
+      for (const key of Object.keys(fields)) fields[key] = '';
+    }
+    delete entry.card;
+    delete entry.identity;
   }
   data.entries.length = 0;
   data.folders.length = 0;

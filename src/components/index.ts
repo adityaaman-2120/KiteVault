@@ -1,8 +1,10 @@
 export { Button } from './Button';
 export { Card } from './Card';
 export { Checkbox } from './Checkbox';
+export { Chip } from './Chip';
 export { ChoiceGroup } from './ChoiceGroup';
 export { EmptyState } from './EmptyState';
+export { LetterAvatar } from './LetterAvatar';
 export { ListItem } from './ListItem';
 export { ScreenContainer } from './ScreenContainer';
 export { StrengthMeter, type StrengthLevel } from './StrengthMeter';

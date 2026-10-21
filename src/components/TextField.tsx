@@ -6,11 +6,13 @@ import { markActivity } from '@/utils/activity';
 
 type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
   label: string;
+  // Validation message shown under the field.
+  error?: string;
   // Hides the text by default and adds a show/hide toggle.
   secret?: boolean;
 };
 
-export function TextField({ label, secret = false, ...inputProps }: Props) {
+export function TextField({ label, secret = false, error, ...inputProps }: Props) {
   const { colors, radius, spacing, typography } = useTheme();
   const [revealed, setRevealed] = useState(false);
 
@@ -22,7 +24,7 @@ export function TextField({ label, secret = false, ...inputProps }: Props) {
           styles.row,
           {
             backgroundColor: colors.surface,
-            borderColor: colors.border,
+            borderColor: error ? colors.danger : colors.border,
             borderRadius: radius.md,
             paddingHorizontal: spacing.md,
           },
@@ -43,7 +45,12 @@ export function TextField({ label, secret = false, ...inputProps }: Props) {
           autoComplete={secret ? 'off' : inputProps.autoComplete}
           importantForAutofill={secret ? 'no' : inputProps.importantForAutofill}
           placeholderTextColor={colors.textMuted}
-          style={[typography.body, styles.input, { color: colors.text }]}
+          style={[
+            typography.body,
+            styles.input,
+            inputProps.multiline ? styles.multiline : null,
+            { color: colors.text },
+          ]}
         />
         {secret ? (
           <Pressable
@@ -58,6 +65,11 @@ export function TextField({ label, secret = false, ...inputProps }: Props) {
           </Pressable>
         ) : null}
       </View>
+      {error ? (
+        <Text accessibilityRole="alert" style={[typography.caption, { color: colors.danger }]}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -65,4 +77,5 @@ export function TextField({ label, secret = false, ...inputProps }: Props) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, minHeight: 48 },
   input: { flex: 1, paddingVertical: 10 },
+  multiline: { minHeight: 110, textAlignVertical: 'top' },
 });

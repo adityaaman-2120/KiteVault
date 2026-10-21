@@ -74,6 +74,9 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="entry/new" options={{ title: 'New entry' }} />
           <Stack.Screen name="entry/[id]" options={{ title: 'Entry' }} />
+          <Stack.Screen name="entry/edit/[id]" options={{ title: 'Edit entry' }} />
+          <Stack.Screen name="trash" options={{ title: 'Trash' }} />
+          <Stack.Screen name="folders" options={{ title: 'Folders' }} />
         </Stack.Protected>
       </Stack>
     </View>

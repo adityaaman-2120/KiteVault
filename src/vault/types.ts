@@ -14,6 +14,22 @@ export type PasswordHistoryItem = {
   changedAt: number; // epoch ms
 };
 
+// Extra fields for the "card" and "identity" entry types. All plain strings, all optional.
+export type CardDetails = {
+  holder: string;
+  number: string;
+  expiry: string; // MM/YY
+  cvv: string;
+  pin: string;
+};
+
+export type IdentityDetails = {
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+};
+
 export type Entry = {
   id: string;
   type: EntryType;
@@ -29,6 +45,10 @@ export type Entry = {
   createdAt: number; // epoch ms
   updatedAt: number; // epoch ms
   passwordHistory: PasswordHistoryItem[];
+  card?: CardDetails;
+  identity?: IdentityDetails;
+  // Set when the entry is moved to the Trash (epoch ms). Removed for good after 30 days.
+  deletedAt?: number;
 };
 
 export type Folder = {
