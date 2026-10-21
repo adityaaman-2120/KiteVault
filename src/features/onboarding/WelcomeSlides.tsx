@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Button, ScreenContainer } from '@/components';
+import { isCloudBackupAvailable } from '@/features/backup/config';
 import { useTheme } from '@/theme';
 
 export const SLIDES = [
@@ -83,6 +84,13 @@ export function WelcomeSlides() {
         ))}
       </View>
       <Button title={last ? 'Create your vault' : 'Next'} onPress={next} />
+      {isCloudBackupAvailable() ? (
+        <Button
+          title="Restore from Google Drive"
+          variant="secondary"
+          onPress={() => router.push('/restore')}
+        />
+      ) : null}
     </ScreenContainer>
   );
 }

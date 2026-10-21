@@ -80,6 +80,12 @@ describe('useSettingsStore', () => {
     expect(Object.keys((await readJsonFile(SETTINGS_FILE)) as object).sort()).toEqual([
       'allowScreenshots',
       'backgroundLockSeconds',
+      'backupAuto',
+      'backupEnabled',
+      'backupLastAt',
+      'backupPending',
+      'backupRemoteId',
+      'backupRemoteModified',
       'biometricPromptDismissed',
       'clipboardClearSeconds',
       'inactivityLockMinutes',
@@ -96,6 +102,32 @@ describe('useSettingsStore', () => {
       clipboardClearSeconds: 30,
     });
     expect(parseAppSettings({ clipboardClearSeconds: 0 }).clipboardClearSeconds).toBe(0);
+  });
+
+  test('cloud backup is off by default and automatic backup needs backup to be on', () => {
+    expect(DEFAULT_APP_SETTINGS).toMatchObject({
+      backupEnabled: false,
+      backupAuto: false,
+      backupPending: false,
+    });
+    expect(parseAppSettings({ backupEnabled: false, backupAuto: true }).backupAuto).toBe(false);
+    expect(parseAppSettings({ backupEnabled: true, backupAuto: true }).backupAuto).toBe(true);
+  });
+
+  test('backup values that are not what we wrote are ignored, and hold no secrets', () => {
+    const parsed = parseAppSettings({
+      backupEnabled: 'yes',
+      backupLastAt: -5,
+      backupRemoteId: 42,
+      backupRemoteModified: { x: 1 },
+    });
+    expect(parsed).toMatchObject({
+      backupEnabled: false,
+      backupLastAt: 0,
+      backupRemoteId: '',
+      backupRemoteModified: '',
+    });
+    expect(parseAppSettings({ backupRemoteId: 'x'.repeat(500) }).backupRemoteId).toHaveLength(200);
   });
 
   test('remembers the biometric "do not ask again" choice', async () => {

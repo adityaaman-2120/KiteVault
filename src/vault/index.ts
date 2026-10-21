@@ -1,4 +1,5 @@
 export { VaultError, type VaultErrorCode } from './errors';
+export { isWellFormedVaultFile } from './format';
 export { useVaultStore } from './useVaultStore';
 export {
   changeMasterPassword,
@@ -9,6 +10,7 @@ export {
   isVaultUnlocked,
   lockVault,
   recoverVault,
+  restoreVaultFromBackup,
   removeRecoveryKey,
   saveVault,
   setRecoveryKey,

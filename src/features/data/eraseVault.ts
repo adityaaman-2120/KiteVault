@@ -2,6 +2,7 @@ import { DEFAULT_APP_SETTINGS, SETTINGS_FILE } from '@/features/settings/appSett
 import { useSettingsStore } from '@/features/settings/useSettingsStore';
 import { useSessionStore } from '@/features/session/useSessionStore';
 import { clearAttemptState } from '@/features/lock/unlockService';
+import { googleAuth } from '@/features/backup/googleAuth';
 import { disableBiometricUnlock } from '@/native/keystore';
 import { deleteJsonFile } from '@/storage/jsonFile';
 import { eraseVault, useVaultStore } from '@/vault';
@@ -25,6 +26,8 @@ export async function eraseEverything(): Promise<void> {
   await eraseVault();
 
   disableBiometricUnlock();
+  // Forget the Google sign-in on this phone. Any backup already in Google Drive stays there.
+  await googleAuth.signOut().catch(() => undefined);
   deleteJsonFile(SETTINGS_FILE);
   clearAttemptState();
   useSettingsStore.setState(DEFAULT_APP_SETTINGS);

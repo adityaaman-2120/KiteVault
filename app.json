@@ -43,7 +43,14 @@
           }
         }
       ],
-      "./plugins/withNoBackup"
+      "./plugins/withNoBackup",
+      [
+        "./plugins/withGoogleBackup",
+        {
+          "enabled": false,
+          "webClientId": ""
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

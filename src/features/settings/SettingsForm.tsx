@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 
 import { Button, Card, ChoiceGroup, ScreenContainer, SectionHeader } from '@/components';
 import { appVersion } from '@/features/about/AboutScreen';
+import { BackupCard } from '@/features/backup/BackupCard';
 import { BiometricSettingsCard } from '@/features/biometric/BiometricSettingsCard';
 import { DataInfoCard } from '@/features/data/DataInfoCard';
 import { EraseVaultCard } from '@/features/data/EraseVaultCard';
@@ -60,12 +61,7 @@ export function SettingsForm() {
       <Button title="Lock now" variant="secondary" onPress={lock} />
 
       <SectionHeader title="Backup" />
-      <Card>
-        <Text style={[typography.heading, { color: colors.text }]}>Encrypted cloud backup</Text>
-        <Text style={[typography.body, { color: colors.textMuted }]}>
-          Back up your vault to your own Google Drive. Coming in a future version.
-        </Text>
-      </Card>
+      <BackupCard />
 
       <SectionHeader title="Data" />
       <DataInfoCard />

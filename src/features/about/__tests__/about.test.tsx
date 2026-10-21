@@ -114,9 +114,10 @@ describe('Settings sections', () => {
     expect(mockPush).toHaveBeenCalledWith('/change-password');
   });
 
-  test('Backup is a placeholder', async () => {
+  test('Backup shows the cloud backup card (not available in a build without it)', async () => {
     await render(<SettingsForm />);
-    expect(screen.getByText(/Coming in a future version/)).toBeTruthy();
+    expect(screen.getByText('Encrypted cloud backup')).toBeTruthy();
+    expect(screen.getByText('Not available in this version of the app.')).toBeTruthy();
   });
 
   test('Data has the explanation and the red erase button', async () => {

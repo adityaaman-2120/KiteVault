@@ -1,6 +1,7 @@
 export {
   deleteVaultFile,
   loadVaultFile,
+  onVaultFileSaved,
   recoverVaultFile,
   saveVaultFile,
   StorageError,

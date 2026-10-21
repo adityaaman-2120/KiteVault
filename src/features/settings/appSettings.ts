@@ -9,6 +9,13 @@ export type AppSettings = {
   allowScreenshots: boolean;
   // Seconds before a copied password / username is cleared from the clipboard. 0 = never.
   clipboardClearSeconds: number;
+  // --- optional Google Drive backup (no secrets: only on/off switches and times) ---
+  backupEnabled: boolean; // signed in and backing up
+  backupAuto: boolean; // back up a little while after every change
+  backupPending: boolean; // the vault file changed since the last successful upload
+  backupLastAt: number; // epoch ms of the last successful upload, 0 = never
+  backupRemoteId: string; // Drive file this phone last uploaded to ('' = none)
+  backupRemoteModified: string; // that file's modifiedTime after our upload ('' = none)
 };
 
 export const BACKGROUND_LOCK_OPTIONS = [
@@ -39,6 +46,12 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   biometricPromptDismissed: false,
   allowScreenshots: false,
   clipboardClearSeconds: 30,
+  backupEnabled: false,
+  backupAuto: false,
+  backupPending: false,
+  backupLastAt: 0,
+  backupRemoteId: '',
+  backupRemoteModified: '',
 };
 
 export const SETTINGS_FILE = 'settings.json';
@@ -61,5 +74,18 @@ export function parseAppSettings(raw: unknown): AppSettings {
     clipboardClearSeconds: clipboard
       ? (value.clipboardClearSeconds as number)
       : DEFAULT_APP_SETTINGS.clipboardClearSeconds,
+    backupEnabled: value.backupEnabled === true,
+    backupAuto: value.backupEnabled === true && value.backupAuto === true,
+    backupPending: value.backupPending === true,
+    backupLastAt:
+      typeof value.backupLastAt === 'number' &&
+      Number.isFinite(value.backupLastAt) &&
+      value.backupLastAt > 0
+        ? value.backupLastAt
+        : 0,
+    backupRemoteId:
+      typeof value.backupRemoteId === 'string' ? value.backupRemoteId.slice(0, 200) : '',
+    backupRemoteModified:
+      typeof value.backupRemoteModified === 'string' ? value.backupRemoteModified.slice(0, 64) : '',
   };
 }

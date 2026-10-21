@@ -31,6 +31,17 @@ function removeQuietly(name: string): void {
   }
 }
 
+// Told after every successful write of the vault file (a save, a password change, a restore).
+// The cloud backup uses it to know that the file changed; it receives no data.
+const savedListeners = new Set<() => void>();
+
+export function onVaultFileSaved(listener: () => void): () => void {
+  savedListeners.add(listener);
+  return () => {
+    savedListeners.delete(listener);
+  };
+}
+
 // Writes the new bytes next to the vault, then swaps them in with renames.
 //
 // expo-file-system's move({ overwrite: true }) deletes the destination before renaming, so it is
@@ -53,6 +64,13 @@ export async function saveVaultFile(bytes: Uint8Array): Promise<void> {
   if (file(MAIN).exists) await file(MAIN).move(file(BAK));
   await file(TMP).move(file(MAIN));
   removeQuietly(BAK);
+  for (const listener of [...savedListeners]) {
+    try {
+      listener();
+    } catch {
+      // A listener must never make a successful save look like a failure.
+    }
+  }
 }
 
 // Cleans up after an interrupted save. `isValid` tells a complete vault from a damaged file.

@@ -476,3 +476,55 @@ export function recoverVault(
     }
   });
 }
+
+// --- restore from a cloud backup ---------------------------------------------------------------
+
+// Opens a vault file that was downloaded from a backup and, if the master password really
+// decrypts it, saves it on this phone and leaves it unlocked. The bytes are written exactly as
+// they were downloaded: nothing is decrypted or re-encrypted on the way. Refuses to run when a
+// vault already exists here, so a restore can never overwrite one.
+//
+// Throws VAULT_EXISTS, CORRUPTED / UNSUPPORTED_VERSION (the file is not a usable vault) or
+// WRONG_PASSWORD.
+export function restoreVaultFromBackup(
+  backup: Uint8Array,
+  masterPassword: string,
+): Promise<VaultData> {
+  return serialized(async () => {
+    if (await vaultExists()) throw new VaultError('VAULT_EXISTS', 'A vault already exists.');
+    if (masterPassword.length === 0) throw wrongPassword();
+    const { header, body } = decodeVaultFile(backup); // CORRUPTED / UNSUPPORTED_VERSION
+
+    let passwordKey: Uint8Array;
+    try {
+      passwordKey = await deriveKeyFromPassword(masterPassword, header.salt, header.kdf);
+    } catch {
+      throw wrongPassword(); // an unsafe KDF setting in the file counts as unusable
+    }
+    let vaultKey: Uint8Array;
+    try {
+      vaultKey = unwrapKey(passwordKey, header.wrappedKey);
+    } catch {
+      throw wrongPassword();
+    } finally {
+      wipe(passwordKey);
+    }
+
+    let plaintext: Uint8Array | undefined;
+    try {
+      plaintext = decrypt(vaultKey, body);
+      const data = parseVaultData(utf8Decode(plaintext));
+      await saveVaultFile(backup);
+      discardSession();
+      session = { vaultKey, header, data, body };
+      return data;
+    } catch (error) {
+      wipe(vaultKey);
+      throw error instanceof VaultError
+        ? error
+        : new VaultError('CORRUPTED', 'The vault file is damaged.');
+    } finally {
+      wipe(plaintext);
+    }
+  });
+}

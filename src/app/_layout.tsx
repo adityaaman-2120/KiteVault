@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
+import { startAutoBackup } from '@/features/backup/autoBackup';
 import { useAutoLock } from '@/features/lock/useAutoLock';
 import {
   protectScreenCaptureAtStartup,
@@ -51,6 +52,9 @@ export default function RootLayout() {
     previousStatus.current = status;
   }, [ready, status, router]);
 
+  // Automatic cloud backup (does nothing unless the user turned it on).
+  useEffect(() => (ready ? startAutoBackup() : undefined), [ready]);
+
   if (!ready) return null;
 
   return (
@@ -70,6 +74,7 @@ export default function RootLayout() {
         <Stack.Protected guard={status === 'no-vault'}>
           <Stack.Screen name="welcome" options={{ headerShown: false }} />
           <Stack.Screen name="create-vault" options={{ title: 'Create vault' }} />
+          <Stack.Screen name="restore" options={{ title: 'Restore from Google Drive' }} />
         </Stack.Protected>
         <Stack.Protected guard={status === 'locked'}>
           <Stack.Screen name="unlock" options={{ headerShown: false }} />

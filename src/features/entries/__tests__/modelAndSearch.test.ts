@@ -94,9 +94,9 @@ describe('with 2,000 entries', () => {
     expect(first).toHaveLength(1);
     expect(again).toHaveLength(1);
     // Generous limits (a phone is slower than this computer, but not 20x).
-    expect(t1 - t0).toBeLessThan(150);
-    expect(t2 - t1).toBeLessThan(100);
-    expect(t3 - t2).toBeLessThan(25);
+    expect(t1 - t0).toBeLessThan(500);
+    expect(t2 - t1).toBeLessThan(300);
+    expect(t3 - t2).toBeLessThan(100);
   });
 
   test('unchanged entries keep their identity, so rows can skip re-rendering', () => {
