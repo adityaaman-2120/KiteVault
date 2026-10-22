@@ -18,6 +18,7 @@ import {
 import { AuthenticatorList } from '@/features/totp/AuthenticatorList';
 
 import { AddEntrySheet } from './AddEntrySheet';
+import { HeaderActions } from './HeaderActions';
 import { EntryRow, ROW_GAP, rowHeight } from './EntryRow';
 import { ENTRY_TYPES, isTrashed } from './model';
 import { SearchBar } from './SearchBar';
@@ -153,11 +154,17 @@ export function VaultListScreen() {
                 </Text>
                 <Text style={[typography.caption, { color: colors.onHeader, opacity: 0.7 }]}>
                   {filtering ? `${visible.length} of ${active.length}` : `${active.length}`} entries
-                  · encrypted on this phone
                 </Text>
               </View>
             </View>
-            <LockButton />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <HeaderActions
+                trashCount={trashCount}
+                onFolders={() => router.push('/folders')}
+                onTrash={() => router.push('/trash')}
+              />
+              <LockButton />
+            </View>
           </View>
           <SearchBar
             value={query}
@@ -252,29 +259,6 @@ export function VaultListScreen() {
             </View>
           </ScrollView>
         ) : null}
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: spacing.sm,
-            marginVertical: -5,
-          }}
-        >
-          <Chip
-            tone="soft"
-            label="Folders"
-            selected={false}
-            onPress={() => router.push('/folders')}
-          />
-          <Chip
-            tone="soft"
-            label={trashCount > 0 ? `Trash (${trashCount})` : 'Trash'}
-            selected={false}
-            onPress={() => router.push('/trash')}
-          />
-        </View>
 
         {__DEV__ ? (
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
