@@ -14,12 +14,15 @@ import java.security.MessageDigest
  * the user linked or with our list of known browsers).
  */
 internal object AppIdentity {
-  /** The app's display name, or null if the package is not visible/installed. Show it, never trust it. */
+  /**
+   * The app's display name, cleaned of tricks (see [LabelSanitizer]), or null if the package is
+   * not visible/installed. Show it next to the package name; never trust it.
+   */
   @Suppress("DEPRECATION")
   fun label(context: Context, packageName: String): String? =
     try {
       val pm = context.packageManager
-      pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+      LabelSanitizer.clean(pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString())
     } catch (e: PackageManager.NameNotFoundException) {
       null
     }

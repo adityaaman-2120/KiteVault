@@ -83,6 +83,8 @@ export function ImportScreen() {
       const outcome = applyImport(data, plan, { skipDuplicates });
       await save(outcome.data);
       setResult({ imported: outcome.imported, skipped: outcome.skipped });
+      // The imported passwords are in the vault now; do not keep a second copy in this screen.
+      setParsed({ ...parsed, entries: [] });
       setStep('done');
     } catch (e) {
       setError(describeTransferError(e));

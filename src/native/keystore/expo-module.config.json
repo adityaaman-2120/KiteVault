@@ -3,6 +3,7 @@
   "android": {
     "modules": [
       "expo.modules.kitevaultkeystore.KeystoreModule",
+      "expo.modules.kitevaultkeystore.ClipboardModule",
       "expo.modules.kitevaultkeystore.autofill.AutofillModule"
     ]
   }

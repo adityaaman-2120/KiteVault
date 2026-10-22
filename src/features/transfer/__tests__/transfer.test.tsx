@@ -215,12 +215,16 @@ describe('picking a file', () => {
     expect(copy.exists).toBe(false);
   });
 
-  test('refuses a file that is too large before reading it', async () => {
+  test('refuses a file that is too large before reading it, and still deletes the cache copy', async () => {
+    const copy = await choose('big.csv', 'some data');
+    pick.mockReset();
     pick.mockResolvedValueOnce({
       canceled: false,
-      assets: [{ uri: 'file:///nope', name: 'big.csv', size: 50 * 1024 * 1024 }],
+      assets: [{ uri: copy.uri, name: 'big.csv', size: 50 * 1024 * 1024 }],
     });
+    expect(copy.exists).toBe(true);
     await expect(pickImportFile()).rejects.toMatchObject({ code: 'too-large' });
+    expect(copy.exists).toBe(false);
   });
 });
 

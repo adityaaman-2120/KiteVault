@@ -187,6 +187,8 @@ describe('missing 2FA suggestions', () => {
   test('host matching', () => {
     expect(hostOf('HTTPS://WWW.Mail.Google.com:443/a?b#c')).toBe('mail.google.com');
     expect(hostOf('user@github.com/x')).toBe('github.com');
+    // a backslash is a slash to browsers: an address that uses one to hide the host is refused
+    expect(hostOf('https://evil.test\\@github.com')).toBe('');
     expect(likelySupports2fa(['nothing', 'https://gist.github.com'])).toBe(true);
     expect(likelySupports2fa(['https://evilgithub.com', 'https://github.com.evil.test'])).toBe(
       false,

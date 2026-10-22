@@ -68,6 +68,8 @@ class KiteVaultAutofillService : AutofillService() {
     val parsed = StructureParser.parse(structure)
     val ownerPackage = parsed.screen.packageName
     if (ownerPackage.isEmpty()) return null
+    // KiteVault's own screens (the master password, the unlock card) are never filled or saved.
+    if (ownerPackage == packageName) return null
     val fromBrowser = TrustedBrowsers.isTrusted(this, ownerPackage)
 
     // The form to offer to save: sign-in, sign-up or change-password. Only offered when we know
@@ -154,6 +156,8 @@ class KiteVaultAutofillService : AutofillService() {
     val parsed = StructureParser.parse(structure, withValues = true)
     val ownerPackage = parsed.screen.packageName
     if (ownerPackage.isEmpty()) return false
+    // Never save what is typed into KiteVault itself (that would include the master password).
+    if (ownerPackage == packageName) return false
     val save =
       SaveCapture.capture(
         parsed.screen,

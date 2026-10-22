@@ -518,3 +518,13 @@ Design: `docs/AUTOFILL_DESIGN.md` section 8 and Appendix C and D. Device checkli
 - **Offering to save sign-up forms:** the fill service now answers a sign-up form with a save offer only (no suggestion), but only for trusted origins. Filling still never happens on sign-up forms.
 - **Limits:** a waiting login on a rooted phone is readable by code inside the app for up to 10 minutes; strings cannot be wiped; the JavaScript duplicate check is exact-host only; whether Chrome sends save requests to third-party services is unverified.
 - **Verified:** Kotlin unit tests (pending store, capture rules, save-form classification, plus the earlier ones) pass under Gradle; Jest covers the native wrapper, matching, new/update actions and history, the review screen, the watcher, erase, and merge of app links. **Not verified:** everything in `docs/AUTOFILL_TESTING.md` section 7 (needs a phone).
+
+## Security review (2026-10-22)
+
+Full report: `docs/SECURITY_REVIEW.md` (findings F-01 to F-24, what was fixed, what is open, what could not be verified, what to hand to an expert). A self-review by the code's author, without a device or a network capture: it does not show that the app is secure.
+
+Fixed in this pass: outside `kitevault://` links no longer steer the app (`+native-intent`); autofill ignores KiteVault's own screens; copied secrets are marked sensitive for Android 13+; saved addresses that disguise the host are never matched; app names are cleaned before they are shown in prompts; the import cache copy and leftover exports are always deleted (also on erase); the unused `VIBRATE` permission is blocked; Google's Data Transport destination list is removed from the build (`plugins/withNoTelemetry.js`) because ML Kit (inside the QR scanner) may send usage data to Google. **That last change is unverified on a device**: check QR scanning and capture the app's network traffic before claiming "no analytics".
+
+Left open on purpose, with reasons and remedies in the report: unauthenticated vault header (needs format v2), screen protection that can fail open, no tap-jacking filter on the main window, local attempt counters that a rooted phone can reset, wall-clock background-lock comparison.
+
+Regression tests: `src/__tests__/securityRegression.test.ts` and `src/native/keystore/__tests__/autofillSources.test.ts`.

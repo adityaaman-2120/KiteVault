@@ -1,6 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { AppState, ToastAndroid } from 'react-native';
 
+import { setSensitiveText } from '@/native/keystore/clipboard';
 import { useSettingsStore } from '@/features/settings/useSettingsStore';
 
 import { createClipboardCleaner } from './clipboardCleaner';
@@ -8,6 +9,9 @@ import { createClipboardCleaner } from './clipboardCleaner';
 const cleaner = createClipboardCleaner({
   read: () => Clipboard.getStringAsync(),
   write: async (text) => {
+    // A copied secret is marked "sensitive" so Android 13+ hides it in the clipboard preview.
+    // Clearing (an empty text) and phones without the native module use the ordinary clipboard.
+    if (text !== '' && setSensitiveText(text)) return;
     await Clipboard.setStringAsync(text);
   },
   isForeground: () => AppState.currentState === 'active',

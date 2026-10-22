@@ -4,6 +4,7 @@ import { useSessionStore } from '@/features/session/useSessionStore';
 import { clearAttemptState } from '@/features/lock/unlockService';
 import { googleAuth } from '@/features/backup/googleAuth';
 import { disableBiometricUnlock } from '@/native/keystore';
+import { purgeExportFiles } from '@/features/transfer/exportFiles';
 import { clearPendingSaves } from '@/native/keystore/autofill';
 import { deleteJsonFile } from '@/storage/jsonFile';
 import { eraseVault, useVaultStore } from '@/vault';
@@ -30,6 +31,8 @@ export async function eraseEverything(): Promise<void> {
   disableBiometricUnlock();
   // Logins that were waiting to be saved from another app are passwords too: remove them.
   await clearPendingSaves();
+  // An export that was interrupted while being shared must not outlive the vault.
+  purgeExportFiles();
   // Forget the Google sign-in on this phone. Any backup already in Google Drive stays there.
   await googleAuth.signOut().catch(() => undefined);
   deleteJsonFile(SETTINGS_FILE);

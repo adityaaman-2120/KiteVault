@@ -19,7 +19,8 @@ internal object DomainMatcher {
    * Turns an address or host into a plain lower-case ASCII host, or null if it is not a usable
    * web address. Rules:
    *  - only `http`, `https` or no scheme at all (so `androidapp://...` is never a web address);
-   *  - the path, query, port and any `user@` part are dropped;
+   *  - the path, query and port are dropped; an address with a `user@` part, a backslash or a
+   *    control character is refused (they are used to disguise the real host);
    *  - non-English letters become their `xn--` form, so look-alike letters never equal the real name;
    *  - a leading `www.` and one trailing dot are dropped.
    */
@@ -31,8 +32,11 @@ internal object DomainMatcher {
       if (scheme.groupValues[1] != "http" && scheme.groupValues[1] != "https") return null
       text = text.substring(scheme.value.length)
     }
+    // A backslash is read as a slash by browsers but not by this code, and "user@" tricks hide the
+    // real host (https://bank.com@evil.test). Saved addresses with either are never matched.
+    if (text.any { it == '\\' || Character.isISOControl(it) }) return null
     text = text.substringBefore('/').substringBefore('?').substringBefore('#')
-    text = text.substringAfterLast('@')
+    if (text.contains('@')) return null
     if (text.startsWith("[")) return null // IPv6 addresses are never matched
     text = text.replace(Regex(":\\d+$"), "")
     text = text.removeSuffix(".")

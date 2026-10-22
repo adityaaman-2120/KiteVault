@@ -18,7 +18,7 @@ class DomainMatcherTest {
   fun normalizesAddressesToPlainHosts() {
     assertEquals("example.com", DomainMatcher.normalizeHost("https://www.Example.com/path?q=1#x"))
     assertEquals("example.com", DomainMatcher.normalizeHost("EXAMPLE.com"))
-    assertEquals("example.com", DomainMatcher.normalizeHost("http://user:pw@example.com:8080/"))
+    assertEquals("example.com", DomainMatcher.normalizeHost("http://example.com:8080/"))
     assertEquals("example.com", DomainMatcher.normalizeHost("example.com."))
     assertEquals("a.example.com", DomainMatcher.normalizeHost("a.example.com"))
   }
@@ -33,6 +33,12 @@ class DomainMatcherTest {
     assertNull(DomainMatcher.normalizeHost("[::1]"))
     assertNull(DomainMatcher.normalizeHost("exa mple.com"))
     assertNull(DomainMatcher.normalizeHost("exa\$mple.com"))
+    // disguises: user info, backslashes, control characters
+    assertNull(DomainMatcher.normalizeHost("http://user:pw@example.com/"))
+    assertNull(DomainMatcher.normalizeHost("https://bank.com@evil.test/"))
+    assertNull(DomainMatcher.normalizeHost("https://evil.test\\@bank.com"))
+    assertNull(DomainMatcher.normalizeHost("https://bank.com\u0000.evil.test"))
+    assertNull(DomainMatcher.normalizeHost("https://bank.com\n.evil.test"))
   }
 
   @Test

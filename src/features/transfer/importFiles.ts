@@ -19,10 +19,10 @@ export async function pickImportFile(): Promise<Uint8Array | null> {
   });
   const asset = result.canceled ? null : result.assets[0];
   if (!asset) return null;
-  if ((asset.size ?? 0) > MAX_IMPORT_BYTES) throw new ImportError('too-large');
-
+  // The copy in the cache is deleted on every path out of here, including refusing a big file.
   const copy = new File(asset.uri);
   try {
+    if ((asset.size ?? 0) > MAX_IMPORT_BYTES) throw new ImportError('too-large');
     const bytes = await copy.bytes();
     if (bytes.length > MAX_IMPORT_BYTES) throw new ImportError('too-large');
     return bytes;
