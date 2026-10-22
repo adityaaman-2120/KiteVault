@@ -287,10 +287,10 @@ export function VaultListScreen() {
         ) : null}
 
         {active.length === 0 ? (
-          <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
-            <EmptyState title="No entries yet" message="Add your first password to get started." />
-            <Button title="Add entry" onPress={() => setAdding(true)} />
-          </View>
+          <EmptyState
+            title="No entries yet"
+            message="Tap the + button to add your first password."
+          />
         ) : visible.length === 0 ? (
           <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
             <EmptyState
@@ -327,55 +327,53 @@ export function VaultListScreen() {
         )}
       </View>
 
-      {active.length > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add entry"
-          onPress={() => setAdding(true)}
-          style={({ pressed }) => [
-            {
-              position: 'absolute',
-              right: spacing.lg,
-              bottom: spacing.lg,
-              width: 60,
-              height: 60,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: radius.pill,
-              backgroundColor: colors.primary,
-              opacity: pressed ? 0.9 : 1,
-              transform: [{ scale: pressed ? 0.95 : 1 }],
-            },
-            elevation.float,
-          ]}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Add entry"
+        onPress={() => setAdding(true)}
+        style={({ pressed }) => [
+          {
+            position: 'absolute',
+            right: spacing.lg,
+            bottom: spacing.lg,
+            width: 60,
+            height: 60,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: radius.pill,
+            backgroundColor: colors.primary,
+            opacity: pressed ? 0.9 : 1,
+            transform: [{ scale: pressed ? 0.95 : 1 }],
+          },
+          elevation.float,
+        ]}
+      >
+        {/* A plus drawn with two bars, so it is crisp and exactly centred. */}
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}
         >
-          {/* A plus drawn with two bars, so it is crisp and exactly centred. */}
           <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <View
-              style={{
-                position: 'absolute',
-                width: 22,
-                height: 3,
-                borderRadius: 2,
-                backgroundColor: colors.onPrimary,
-              }}
-            />
-            <View
-              style={{
-                position: 'absolute',
-                width: 3,
-                height: 22,
-                borderRadius: 2,
-                backgroundColor: colors.onPrimary,
-              }}
-            />
-          </View>
-        </Pressable>
-      ) : null}
+            style={{
+              position: 'absolute',
+              width: 22,
+              height: 3,
+              borderRadius: 2,
+              backgroundColor: colors.onPrimary,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              width: 3,
+              height: 22,
+              borderRadius: 2,
+              backgroundColor: colors.onPrimary,
+            }}
+          />
+        </View>
+      </Pressable>
 
       <AddEntrySheet
         visible={adding}
