@@ -1,5 +1,5 @@
-// The KiteVault launch animation, from Kitelux: a kite flies in, the keyhole spark lights up,
-// and the name appears. It is drawn with react-native-svg and animated with Reanimated, and it
+// The KiteVault launch animation, from Kitelux: a kite flies in, its keyhole flashes with light
+// (the "unlock"), the kite lights up, and the name rises. It is drawn with react-native-svg and animated with Reanimated, and it
 // shows no vault data, so it is safe to show before the vault is unlocked.
 import { useCallback, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -20,6 +20,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 const C = {
   night: '#0B1230',
+  navy: '#0E1630',
   nightGlow: '#26316E',
   gold: '#FFB547',
   goldLight: '#FFC861',
@@ -77,7 +78,8 @@ export function KiteVaultSplash({
   const sway = useSharedValue(0);
   const light = useSharedValue(0);
   const rays = useSharedValue(0);
-  const spark = useSharedValue(0);
+  const key = useSharedValue(0);
+  const keyFlash = useSharedValue(0);
   const pulse = useSharedValue(0);
   const from = useSharedValue(0);
 
@@ -98,7 +100,7 @@ export function KiteVaultSplash({
       fly.value = 1;
       light.value = 1;
       rays.value = 1;
-      spark.value = 1;
+      key.value = 1;
       from.value = 1;
       const timer = setTimeout(finish, 600);
       return () => clearTimeout(timer);
@@ -124,9 +126,10 @@ export function KiteVaultSplash({
       1650,
       withTiming(1, { duration: 1000, easing: Easing.out(Easing.ease) }),
     );
-    spark.value = withDelay(
-      1600,
-      withTiming(1, { duration: 550, easing: Easing.bezier(0.3, 1.6, 0.5, 1) }),
+    key.value = withDelay(1600, withTiming(1, { duration: 500 }));
+    keyFlash.value = withDelay(
+      1550,
+      withSequence(withTiming(1, { duration: 300 }), withTiming(0, { duration: 700 })),
     );
     pulse.value = withDelay(
       2300,
@@ -169,7 +172,10 @@ export function KiteVaultSplash({
 
   const shadeStyle = useAnimatedStyle(() => ({ opacity: 1 - light.value }));
 
-  const sparkStyle = useAnimatedStyle(() => ({ transform: [{ scale: spark.value }] }));
+  const keyStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(key.value, [0, 0.45, 1], [1, 1.2, 1]) }],
+  }));
+  const keyFlashStyle = useAnimatedStyle(() => ({ opacity: keyFlash.value }));
 
   const glowStyle = useAnimatedStyle(() => ({
     opacity: light.value * (1 - 0.3 * pulse.value),
@@ -302,15 +308,25 @@ export function KiteVaultSplash({
             </Svg>
           </Animated.View>
 
+          {/* Keyhole: clicks and flashes with light, then settles navy */}
           <Animated.View
-            style={[StyleSheet.absoluteFill, { transformOrigin: '50% 28.75%' }, sparkStyle]}
+            style={[StyleSheet.absoluteFill, { transformOrigin: '50% 32%' }, keyStyle]}
           >
-            <Svg width={KITE_W} height={KITE_H} viewBox="0 0 120 160">
-              <Path
-                d="M60 34 Q61.6 44.4 72 46 Q61.6 47.6 60 58 Q58.4 47.6 48 46 Q58.4 44.4 60 34 Z"
-                fill={C.white}
-              />
+            <Svg
+              style={StyleSheet.absoluteFill}
+              width={KITE_W}
+              height={KITE_H}
+              viewBox="0 0 120 160"
+            >
+              <Circle cx={60} cy={44.3} r={7} fill={C.navy} />
+              <Path d="M57 48 L63 48 L65.7 65.3 L54.3 65.3 Z" fill={C.navy} />
             </Svg>
+            <Animated.View style={[StyleSheet.absoluteFill, keyFlashStyle]}>
+              <Svg width={KITE_W} height={KITE_H} viewBox="0 0 120 160">
+                <Circle cx={60} cy={44.3} r={7} fill={C.glow} />
+                <Path d="M57 48 L63 48 L65.7 65.3 L54.3 65.3 Z" fill={C.glow} />
+              </Svg>
+            </Animated.View>
           </Animated.View>
         </Animated.View>
       </Animated.View>
