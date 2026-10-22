@@ -39,6 +39,8 @@ export default function TabsLayout() {
         name="generator"
         options={{
           title: 'Generator',
+          // The Generator screen draws its own header panel.
+          headerShown: false,
           tabBarIcon: ({ color }) => <TabIcon name="generator" color={color} />,
         }}
       />
