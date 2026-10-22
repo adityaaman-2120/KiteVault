@@ -14,6 +14,8 @@ export type ColorTokens = {
   // A gentle tint of the main colour, for selected chips, icon badges and highlights.
   primarySoft: string;
   // The top bar. Darker than the page so the bar and the screen read as two separate layers.
+  // The fill behind a text field on a form. Always a little darker than the page, in both themes.
+  field: string;
   header: string;
   onHeader: string;
   // The brand orange, as readable text ("Vault" in the name, small highlights).
@@ -36,6 +38,7 @@ export const lightColors: ColorTokens = {
   primary: '#1B2A5C',
   onPrimary: '#FFFFFF',
   primarySoft: '#E4E8F7',
+  field: '#E3E6F2',
   header: '#1B2A5C',
   onHeader: '#FFFFFF',
   accent: '#B4530A',
@@ -55,6 +58,7 @@ export const darkColors: ColorTokens = {
   primary: '#FFB547',
   onPrimary: '#0E1630',
   primarySoft: '#2B2F4E',
+  field: '#080D20',
   header: '#080D20',
   onHeader: '#F4F5FA',
   accent: '#FFB547',

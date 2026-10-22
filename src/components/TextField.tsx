@@ -12,8 +12,8 @@ type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
   error?: string;
   // Hides the text by default and adds a show/hide toggle.
   secret?: boolean;
-  // No box around the field: a small label over the text, and a line under it while focused.
-  // For fields that sit in a row of a grouped card.
+  // The form look: a darker rectangle that never changes, and a line under it that lights up
+  // while you type.
   plain?: boolean;
 };
 
@@ -32,12 +32,23 @@ export function TextField({ label, secret = false, error, plain = false, ...inpu
         style={[
           styles.row,
           {
-            backgroundColor: plain ? 'transparent' : colors.surface,
-            borderColor: error ? colors.danger : focused ? colors.primary : colors.outline,
+            backgroundColor: plain ? colors.field : colors.surface,
+            borderColor: plain
+              ? underline
+              : error
+                ? colors.danger
+                : focused
+                  ? colors.primary
+                  : colors.outline,
+            // The form look has no outline: only the line under the field, which lights up on focus.
             borderWidth: plain ? 0 : focused ? 2 : 1,
-            borderRadius: plain ? 0 : radius.lg,
-            paddingHorizontal: plain ? 0 : spacing.lg,
-            minHeight: plain ? 40 : 52,
+            borderBottomWidth: plain ? 2 : focused ? 2 : 1,
+            borderTopLeftRadius: plain ? radius.sm : radius.lg,
+            borderTopRightRadius: plain ? radius.sm : radius.lg,
+            borderBottomLeftRadius: plain ? 0 : radius.lg,
+            borderBottomRightRadius: plain ? 0 : radius.lg,
+            paddingHorizontal: plain ? spacing.md : spacing.lg,
+            minHeight: plain ? 48 : 52,
           },
         ]}
       >
@@ -80,7 +91,6 @@ export function TextField({ label, secret = false, error, plain = false, ...inpu
           />
         ) : null}
       </View>
-      {plain ? <View style={{ height: 2, borderRadius: 1, backgroundColor: underline }} /> : null}
       {error ? (
         <Text accessibilityRole="alert" style={[typography.caption, { color: colors.danger }]}>
           {error}
@@ -93,7 +103,7 @@ export function TextField({ label, secret = false, error, plain = false, ...inpu
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, minHeight: 52 },
   input: { flex: 1, paddingVertical: 10 },
-  inputPlain: { paddingVertical: 4 },
+  inputPlain: { paddingVertical: 8 },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
-  multilinePlain: { minHeight: 80, textAlignVertical: 'top' },
+  multilinePlain: { minHeight: 88, textAlignVertical: 'top' },
 });

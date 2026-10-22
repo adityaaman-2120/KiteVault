@@ -90,7 +90,7 @@ function TypeBadge({ type, title }: { type: EntryType; title: string }) {
   );
 }
 
-// A titled group of related fields. Each child is a row, with a thin line between rows.
+// A titled group of related fields, one row each.
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const { colors, spacing, typography } = useTheme();
   const rows = Children.toArray(children);
@@ -111,21 +111,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       >
         {title}
       </Text>
-      <View>
+      <View style={{ gap: spacing.md }}>
         {rows.map((row, index) => (
-          <View
-            key={index}
-            style={{
-              paddingVertical: spacing.sm + 2,
-              borderTopWidth: 1,
-              borderTopColor: colors.border,
-              ...(index === rows.length - 1
-                ? { borderBottomWidth: 1, borderBottomColor: colors.border }
-                : null),
-            }}
-          >
-            {row}
-          </View>
+          <View key={index}>{row}</View>
         ))}
       </View>
     </View>
