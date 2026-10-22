@@ -252,3 +252,35 @@ describe('a vault without a recovery key', () => {
     expect(screen.queryByLabelText('Recovery key')).toBeNull();
   });
 });
+
+describe('the guide above the key box', () => {
+  beforeEach(forgottenVault);
+
+  test('says to enter all 8 groups of 7 characters, in order, in the one box', async () => {
+    await render(<RecoverForm />);
+    expect(await screen.findByText('Enter the whole recovery key')).toBeTruthy();
+    expect(screen.getByText(/8 groups of 7 characters/)).toBeTruthy();
+    expect(screen.getByText(/One group on its own is not enough/)).toBeTruthy();
+  });
+
+  test('shows how many groups are filled in as the key is typed, never the key itself', async () => {
+    await render(<RecoverForm />);
+    await screen.findByText('Enter the whole recovery key');
+    expect(screen.getByLabelText('0 of 8 groups entered')).toBeTruthy();
+
+    const groups = recoveryText.split('-');
+    await fireEvent.changeText(field('Recovery key'), groups[0]!);
+    expect(screen.getByLabelText('1 of 8 groups entered')).toBeTruthy();
+    expect(screen.getByText('✓ 1', { includeHiddenElements: true })).toBeTruthy();
+
+    await fireEvent.changeText(field('Recovery key'), groups.slice(0, 3).join('-'));
+    expect(screen.getByLabelText('3 of 8 groups entered')).toBeTruthy();
+
+    await fireEvent.changeText(field('Recovery key'), recoveryText);
+    expect(screen.getByLabelText('8 of 8 groups entered')).toBeTruthy();
+    // Only counts are shown: no typed character appears in the guide.
+    expect(
+      screen.queryByText(groups[0]!, { exact: false, includeHiddenElements: true }),
+    ).toBeNull();
+  });
+});

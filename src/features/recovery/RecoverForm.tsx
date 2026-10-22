@@ -20,6 +20,7 @@ import {
 } from '@/vault';
 
 import { RECOVERY_WARNING } from './RecoveryKeyCreateScreen';
+import { RecoveryKeyGuide } from './RecoveryKeyGuide';
 
 type Check = 'empty' | 'incomplete' | 'typo' | 'ok';
 
@@ -135,6 +136,8 @@ export function RecoverForm() {
           Only use your own recovery key, and keep it offline.
         </Text>
       </View>
+
+      <RecoveryKeyGuide typed={countRecoveryCharacters(recoveryText)} />
 
       <TextField
         label="Recovery key"
