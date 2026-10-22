@@ -9,12 +9,14 @@ export function SectionHeader({ title }: { title: string }) {
     <Text
       accessibilityRole="header"
       style={[
-        typography.label,
+        typography.caption,
         {
-          color: colors.primary,
+          color: colors.textMuted,
+          fontWeight: '700',
           textTransform: 'uppercase',
-          letterSpacing: 1,
-          marginTop: spacing.md,
+          letterSpacing: 1.2,
+          marginTop: spacing.lg,
+          marginLeft: spacing.xs,
         },
       ]}
     >

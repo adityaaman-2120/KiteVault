@@ -59,7 +59,7 @@ function FormTextField({ control, name, label, ...rest }: FieldProps) {
   );
 }
 
-export function EntryFormScreen({ id }: { id?: string }) {
+export function EntryFormScreen({ id, initialType }: { id?: string; initialType?: EntryType }) {
   const router = useRouter();
   const { colors, spacing, typography } = useTheme();
   const existing = useVaultStore((s) =>
@@ -71,7 +71,7 @@ export function EntryFormScreen({ id }: { id?: string }) {
 
   const { control, handleSubmit, formState, setValue } = useForm<EntryFormValues>({
     resolver: zodResolver(entryFormSchema),
-    defaultValues: existing ? entryToForm(existing) : emptyForm(),
+    defaultValues: existing ? entryToForm(existing) : emptyForm(initialType),
     mode: 'onTouched',
   });
   const urls = useFieldArray({ control, name: 'urls' });

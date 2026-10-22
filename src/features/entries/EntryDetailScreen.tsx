@@ -31,7 +31,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   const { colors, spacing, typography } = useTheme();
   return (
     <Card>
-      <Text style={[typography.label, { color: colors.textMuted }]}>{title}</Text>
+      <Text
+        style={[
+          typography.caption,
+          {
+            color: colors.textMuted,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+          },
+        ]}
+      >
+        {title}
+      </Text>
       <View style={{ gap: spacing.lg }}>{children}</View>
     </Card>
   );
@@ -80,16 +92,16 @@ export function EntryDetailScreen({ id }: { id: string }) {
 
   return (
     <ScreenContainer scroll>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <LetterAvatar title={entry.title} size={52} />
-        <View style={{ flex: 1 }}>
-          <Text style={[typography.heading, { color: colors.text }]}>{entry.title}</Text>
-          <Text style={[typography.caption, { color: colors.textMuted }]}>
-            {typeLabel(entry.type)}
-            {folderName ? ` · ${folderName}` : ''}
-            {entry.favorite ? ' · ★ Favorite' : ''}
-          </Text>
-        </View>
+      <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md }}>
+        <LetterAvatar title={entry.title} size={76} />
+        <Text style={[typography.title, { color: colors.text, textAlign: 'center' }]}>
+          {entry.title}
+        </Text>
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          {typeLabel(entry.type)}
+          {folderName ? ` · ${folderName}` : ''}
+          {entry.favorite ? ' · ★ Favorite' : ''}
+        </Text>
       </View>
 
       <TypeFields entry={entry} />

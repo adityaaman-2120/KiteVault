@@ -17,18 +17,22 @@ type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
 export function TextField({ label, secret = false, error, ...inputProps }: Props) {
   const { colors, radius, spacing, typography } = useTheme();
   const [revealed, setRevealed] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   return (
     <View style={{ gap: spacing.xs }}>
-      <Text style={[typography.label, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[typography.label, { color: focused ? colors.primary : colors.textMuted }]}>
+        {label}
+      </Text>
       <View
         style={[
           styles.row,
           {
             backgroundColor: colors.surface,
-            borderColor: error ? colors.danger : colors.outline,
-            borderRadius: radius.md,
-            paddingHorizontal: spacing.md,
+            borderColor: error ? colors.danger : focused ? colors.primary : colors.outline,
+            borderWidth: focused ? 2 : 1,
+            borderRadius: radius.lg,
+            paddingHorizontal: spacing.lg,
           },
         ]}
       >
@@ -37,6 +41,14 @@ export function TextField({ label, secret = false, error, ...inputProps }: Props
           autoCorrect={false}
           spellCheck={false}
           {...inputProps}
+          onFocus={(e) => {
+            setFocused(true);
+            inputProps.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            inputProps.onBlur?.(e);
+          }}
           accessibilityLabel={label}
           onChangeText={(text) => {
             markActivity(); // typing counts as activity for the inactivity timer
@@ -72,7 +84,7 @@ export function TextField({ label, secret = false, error, ...inputProps }: Props
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, minHeight: 48 },
+  row: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, minHeight: 52 },
   input: { flex: 1, paddingVertical: 10 },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
 });

@@ -104,7 +104,8 @@ test('opening a row goes to the entry; the buttons go to add / folders / trash',
   await fireEvent.press(screen.getByRole('button', { name: /^GitHub,/ }));
   expect(mockPush).toHaveBeenLastCalledWith('/entry/1');
   await fireEvent.press(screen.getByRole('button', { name: 'Add entry' }));
-  expect(mockPush).toHaveBeenLastCalledWith('/entry/new');
+  await fireEvent.press(screen.getByRole('button', { name: 'New secure note' }));
+  expect(mockPush).toHaveBeenLastCalledWith('/entry/new?type=note');
   await fireEvent.press(screen.getByRole('button', { name: 'Folders' }));
   expect(mockPush).toHaveBeenLastCalledWith('/folders');
   await fireEvent.press(screen.getByRole('button', { name: 'Trash (1)' }));

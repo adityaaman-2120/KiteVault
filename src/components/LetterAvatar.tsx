@@ -18,7 +18,7 @@ export function avatarHue(title: string): number {
 
 export const LetterAvatar = memo(function LetterAvatar({
   title,
-  size = 40,
+  size = 44,
 }: {
   title: string;
   size?: number;
@@ -31,7 +31,8 @@ export const LetterAvatar = memo(function LetterAvatar({
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
+        // A rounded square looks more modern than a circle.
+        borderRadius: size * 0.32,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: `hsl(${avatarHue(title)}, 45%, ${isDark ? 32 : 42}%)`,

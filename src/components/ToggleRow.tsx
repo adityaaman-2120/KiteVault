@@ -14,7 +14,7 @@ export function ToggleRow({ label, description, value, onChange }: Props) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[typography.body, { color: colors.text }]}>{label}</Text>
+        <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>{label}</Text>
         {description ? (
           <Text style={[typography.caption, { color: colors.textMuted }]}>{description}</Text>
         ) : null}
@@ -24,6 +24,7 @@ export function ToggleRow({ label, description, value, onChange }: Props) {
         value={value}
         onValueChange={onChange}
         trackColor={{ true: colors.primary, false: colors.outline }}
+        thumbColor={value ? colors.onPrimary : colors.surface}
       />
     </View>
   );

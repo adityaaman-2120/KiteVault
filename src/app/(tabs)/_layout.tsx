@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 
-import { LockButton } from '@/features/lock/LockButton';
+import { TabIcon } from '@/components';
 import { useTheme } from '@/theme';
 
 export default function TabsLayout() {
@@ -9,21 +9,46 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
+        headerStyle: { backgroundColor: colors.header },
+        headerTintColor: colors.onHeader,
         headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.background },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        headerTitleStyle: typography.heading,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 68,
+          paddingTop: 6,
+          paddingBottom: 8,
+        },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: typography.label,
-        // Text-only tabs keep the shell free of icon dependencies.
-        tabBarIcon: () => null,
       }}
     >
-      <Tabs.Screen name="vault" options={{ title: 'Vault', headerRight: () => <LockButton /> }} />
-      <Tabs.Screen name="generator" options={{ title: 'Generator' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen
+        name="vault"
+        options={{
+          title: 'Vault',
+          // The Vault screen draws its own header (title, lock button and search).
+          headerShown: false,
+          tabBarIcon: ({ color }) => <TabIcon name="vault" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="generator"
+        options={{
+          title: 'Generator',
+          tabBarIcon: ({ color }) => <TabIcon name="generator" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

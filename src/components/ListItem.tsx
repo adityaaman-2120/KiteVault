@@ -14,7 +14,7 @@ export function ListItem({ title, subtitle, onPress }: Props) {
         backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
         borderColor: colors.border,
         borderWidth: 1,
-        borderRadius: radius.md,
+        borderRadius: radius.lg,
         padding: spacing.lg,
         flexDirection: 'row',
         alignItems: 'center',
@@ -22,12 +22,23 @@ export function ListItem({ title, subtitle, onPress }: Props) {
       })}
     >
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[typography.body, { color: colors.text }]}>{title}</Text>
+        <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>{title}</Text>
         {subtitle ? (
           <Text style={[typography.caption, { color: colors.textMuted }]}>{subtitle}</Text>
         ) : null}
       </View>
-      <Text style={[typography.heading, { color: colors.textMuted }]}>›</Text>
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: radius.pill,
+          backgroundColor: colors.primarySoft,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={[typography.label, { color: colors.primary }]}>›</Text>
+      </View>
     </Pressable>
   );
 }

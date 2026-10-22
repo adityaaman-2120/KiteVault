@@ -15,14 +15,17 @@ import { useTheme } from '@/theme';
 
 export const SLIDES = [
   {
+    icon: '📱',
     title: 'Everything stays on your device',
     body: 'Your passwords are encrypted and stored only on this phone. There is no account and no tracking.',
   },
   {
+    icon: '🔑',
     title: 'Only you hold the key',
     body: 'Your master password cannot be recovered by anyone, including Kitelux. If you forget it, your passwords are gone for good, unless you set up a recovery key.',
   },
   {
+    icon: '☁️',
     title: 'Optional encrypted backup',
     body: 'Back up to your own Google Drive if you like. The backup is encrypted on your phone before it leaves, and only your master password can open it.',
   },
@@ -52,7 +55,7 @@ export function WelcomeSlides() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer headerless>
       <BrandHeader size="large" />
       <FlatList
         ref={listRef}
@@ -65,6 +68,21 @@ export function WelcomeSlides() {
         getItemLayout={(_, i) => ({ length: pageWidth, offset: pageWidth * i, index: i })}
         renderItem={({ item }) => (
           <View style={{ width: pageWidth, justifyContent: 'center', gap: spacing.md }}>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: radius.xl,
+                backgroundColor: colors.primarySoft,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: spacing.md,
+              }}
+            >
+              <Text style={{ fontSize: 44 }}>{item.icon}</Text>
+            </View>
             <Text style={[typography.title, { color: colors.text }]}>{item.title}</Text>
             <Text style={[typography.body, { color: colors.textMuted }]}>{item.body}</Text>
           </View>

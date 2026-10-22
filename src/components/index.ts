@@ -13,3 +13,5 @@ export { StrengthMeter, type StrengthLevel } from './StrengthMeter';
 export { TextField } from './TextField';
 export { ToggleRow } from './ToggleRow';
 export { BrandHeader } from './BrandHeader';
+export { TabIcon } from './TabIcon';
+export { SegmentedControl } from './SegmentedControl';

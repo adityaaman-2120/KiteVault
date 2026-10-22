@@ -7,7 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "kitevault",
     "userInterfaceStyle": "automatic",
-    "platforms": ["android"],
+    "platforms": [
+      "android"
+    ],
     "android": {
       "package": "com.kitelux.kitevault",
       "allowBackup": false,
@@ -23,6 +25,9 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.VIBRATE"
+      ],
+      "permissions": [
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
@@ -60,10 +65,25 @@
           "enabled": false,
           "webClientId": ""
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "cloudBackup": {
+        "enabled": false,
+        "webClientId": ""
+      },
+      "eas": {
+        "projectId": "d0ac7ffc-556c-418a-80a0-7ab30f5fdd25"
+      }
     }
   }
 }

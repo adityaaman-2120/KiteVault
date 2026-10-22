@@ -11,6 +11,11 @@ export type ColorTokens = {
   textMuted: string;
   primary: string;
   onPrimary: string;
+  // A gentle tint of the main colour, for selected chips, icon badges and highlights.
+  primarySoft: string;
+  // The top bar. Darker than the page so the bar and the screen read as two separate layers.
+  header: string;
+  onHeader: string;
   // The brand orange, as readable text ("Vault" in the name, small highlights).
   accent: string;
   danger: string;
@@ -30,6 +35,9 @@ export const lightColors: ColorTokens = {
   textMuted: '#4A5272',
   primary: '#1B2A5C',
   onPrimary: '#FFFFFF',
+  primarySoft: '#E4E8F7',
+  header: '#1B2A5C',
+  onHeader: '#FFFFFF',
   accent: '#B4530A',
   danger: '#B3261E',
   warning: '#8A5300',
@@ -46,6 +54,9 @@ export const darkColors: ColorTokens = {
   textMuted: '#B7BFDD',
   primary: '#FFB547',
   onPrimary: '#0E1630',
+  primarySoft: '#2B2F4E',
+  header: '#080D20',
+  onHeader: '#F4F5FA',
   accent: '#FFB547',
   danger: '#FF8A80',
   warning: '#FFC861',

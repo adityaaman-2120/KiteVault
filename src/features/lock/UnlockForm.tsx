@@ -128,7 +128,7 @@ export function UnlockForm() {
   }
 
   return (
-    <ScreenContainer scroll>
+    <ScreenContainer scroll headerless>
       <View style={{ gap: spacing.sm, marginTop: spacing.xl }}>
         <BrandHeader />
         <Text style={[typography.title, { color: colors.text }]}>Unlock</Text>

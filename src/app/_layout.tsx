@@ -72,20 +72,23 @@ export default function RootLayout() {
       <RootWarningBanner />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.header },
+          headerTintColor: colors.onHeader,
           headerShadowVisible: false,
+          // Light icons on the dark header; screens without a header switch back to automatic.
+          statusBarStyle: 'light',
+          statusBarBackgroundColor: colors.header,
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false, statusBarStyle: 'auto' }} />
         <Stack.Protected guard={status === 'no-vault'}>
-          <Stack.Screen name="welcome" options={{ headerShown: false }} />
+          <Stack.Screen name="welcome" options={{ headerShown: false, statusBarStyle: 'auto' }} />
           <Stack.Screen name="create-vault" options={{ title: 'Create vault' }} />
           <Stack.Screen name="restore" options={{ title: 'Restore from Google Drive' }} />
         </Stack.Protected>
         <Stack.Protected guard={status === 'locked'}>
-          <Stack.Screen name="unlock" options={{ headerShown: false }} />
+          <Stack.Screen name="unlock" options={{ headerShown: false, statusBarStyle: 'auto' }} />
           <Stack.Screen name="recover" options={{ title: 'Recover vault' }} />
         </Stack.Protected>
         <Stack.Protected guard={status === 'unlocked'}>

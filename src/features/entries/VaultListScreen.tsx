@@ -1,8 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, ScrollView, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Button, Chip, EmptyState, ScreenContainer, TextField } from '@/components';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Button, Chip, EmptyState, SegmentedControl } from '@/components';
+import { LockButton } from '@/features/lock/LockButton';
 import { useTheme } from '@/theme';
 import { useVaultStore, type Entry, type EntryType } from '@/vault';
 
@@ -14,8 +17,10 @@ import {
 } from './entryActions';
 import { AuthenticatorList } from '@/features/totp/AuthenticatorList';
 
+import { AddEntrySheet } from './AddEntrySheet';
 import { EntryRow, ROW_GAP, rowHeight } from './EntryRow';
 import { ENTRY_TYPES, isTrashed } from './model';
+import { SearchBar } from './SearchBar';
 import { filterEntries, sortEntries } from './search';
 
 const keyExtractor = (entry: Entry) => entry.id;
@@ -25,13 +30,30 @@ const getItemLayout = (_: unknown, index: number) => {
 };
 const Separator = () => <View style={{ height: ROW_GAP }} />;
 const NO_ENTRIES: Entry[] = [];
+// The brand amber, readable on the dark header in both themes.
+const AMBER = '#FFB547';
+
+// Small text button for the development helpers (only built into dev builds).
+function DevButton({ title, onPress }: { title: string; onPress: () => void }) {
+  const { colors, typography } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={8}>
+      <Text
+        style={[typography.caption, { color: colors.textMuted, textDecorationLine: 'underline' }]}
+      >
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
 
 export function VaultListScreen() {
   const router = useRouter();
-  const { colors, spacing, typography } = useTheme();
+  const { colors, elevation, radius, spacing, typography } = useTheme();
   const entries = useVaultStore((s) => s.data?.entries) ?? NO_ENTRIES;
   const folders = useVaultStore((s) => s.data?.folders);
 
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState('');
   const [type, setType] = useState<EntryType | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -98,41 +120,95 @@ export function VaultListScreen() {
   }
 
   return (
-    <ScreenContainer>
-      <TextField
-        label="Search"
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Title, username or website"
-        autoCorrect={false}
-      />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* The dark top panel holds the title, the lock button and the search, like a header. */}
+      <SafeAreaView
+        edges={['top']}
+        style={{
+          backgroundColor: colors.header,
+          borderBottomLeftRadius: radius.xl,
+          borderBottomRightRadius: radius.xl,
+        }}
+      >
+        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md }}>
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <View
+              accessible
+              accessibilityRole="header"
+              accessibilityLabel="KiteVault"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+            >
+              <Image
+                source={require('../../../assets/images/brand-mark.png')}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                style={{ width: 44, height: 44 }}
+                resizeMode="contain"
+              />
+              <View>
+                <Text style={[typography.title, { color: colors.onHeader }]}>
+                  Kite<Text style={{ color: AMBER }}>Vault</Text>
+                </Text>
+                <Text style={[typography.caption, { color: colors.onHeader, opacity: 0.7 }]}>
+                  {filtering ? `${visible.length} of ${active.length}` : `${active.length}`} entries
+                  · encrypted on this phone
+                </Text>
+              </View>
+            </View>
+            <LockButton />
+          </View>
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search title, username or website"
+          />
+        </View>
+      </SafeAreaView>
 
-      <View style={{ gap: spacing.sm }}>
+      <View
+        style={{ flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm }}
+      >
+        {/* The main views of the vault. Only one is active at a time. */}
+        <SegmentedControl
+          options={[
+            {
+              label: 'All',
+              selected: !favoritesOnly && !authenticatorOnly,
+              onPress: () => {
+                setFavoritesOnly(false);
+                setType(null);
+                setAuthenticatorOnly(false);
+              },
+            },
+            {
+              label: '★ Favorites',
+              selected: favoritesOnly,
+              onPress: () => {
+                setFavoritesOnly((v) => !v);
+                setAuthenticatorOnly(false);
+              },
+            },
+            {
+              label: 'Authenticator',
+              selected: authenticatorOnly,
+              onPress: () => {
+                setAuthenticatorOnly((v) => !v);
+                setFavoritesOnly(false);
+              },
+            },
+          ]}
+        />
+
+        {/* Chips keep a 48dp touch area but look compact, so the rows overlap a little. */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          style={{ flexGrow: 0, marginVertical: -5 }}
         >
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Chip
-              label="All"
-              selected={!favoritesOnly && type === null && !authenticatorOnly}
-              onPress={() => {
-                setFavoritesOnly(false);
-                setType(null);
-                setAuthenticatorOnly(false);
-              }}
-            />
-            <Chip
-              label="Authenticator"
-              selected={authenticatorOnly}
-              onPress={() => setAuthenticatorOnly((v) => !v)}
-            />
-            <Chip
-              label="★ Favorites"
-              selected={favoritesOnly}
-              onPress={() => setFavoritesOnly((v) => !v)}
-            />
             {ENTRY_TYPES.map((t) => (
               <Chip
                 key={t.value}
@@ -149,20 +225,24 @@ export function VaultListScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            style={{ flexGrow: 0, marginVertical: -5 }}
           >
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <Chip
+                tone="soft"
                 label="All folders"
                 selected={folderId === null}
                 onPress={() => setFolderId(null)}
               />
               <Chip
+                tone="soft"
                 label="No folder"
                 selected={folderId === ''}
                 onPress={() => setFolderId(folderId === '' ? null : '')}
               />
               {folders.map((f) => (
                 <Chip
+                  tone="soft"
                   key={f.id}
                   label={f.name}
                   selected={folderId === f.id}
@@ -172,85 +252,139 @@ export function VaultListScreen() {
             </View>
           </ScrollView>
         ) : null}
-      </View>
 
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <View style={{ flex: 1 }}>
-          <Button title="Folders" variant="secondary" onPress={() => router.push('/folders')} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Button
-            title={trashCount > 0 ? `Trash (${trashCount})` : 'Trash'}
-            variant="secondary"
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: spacing.sm,
+            marginVertical: -5,
+          }}
+        >
+          <Chip
+            tone="soft"
+            label="Folders"
+            selected={false}
+            onPress={() => router.push('/folders')}
+          />
+          <Chip
+            tone="soft"
+            label={trashCount > 0 ? `Trash (${trashCount})` : 'Trash'}
+            selected={false}
             onPress={() => router.push('/trash')}
           />
         </View>
-      </View>
 
-      {__DEV__ ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <View style={{ flex: 1 }}>
-            <Button
+        {__DEV__ ? (
+          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+            <DevButton
               title="Seed 2,000 (dev)"
-              variant="secondary"
               onPress={() => void runDev(() => seedFakeEntries(2000))}
             />
+            <DevButton title="Remove seed (dev)" onPress={() => void runDev(removeSeedEntries)} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Remove seed (dev)"
-              variant="secondary"
-              onPress={() => void runDev(removeSeedEntries)}
+        ) : null}
+
+        {active.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
+            <EmptyState title="No entries yet" message="Add your first password to get started." />
+            <Button title="Add entry" onPress={() => setAdding(true)} />
+          </View>
+        ) : visible.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
+            <EmptyState
+              title={onlyAuthenticator ? 'No codes' : 'No matches'}
+              message={
+                onlyAuthenticator
+                  ? 'No entry has a 2FA code yet. Open an entry and choose Add 2FA.'
+                  : 'Nothing fits your search and filters.'
+              }
+            />
+            {filtering ? (
+              <Button title="Clear search and filters" variant="secondary" onPress={clearFilters} />
+            ) : null}
+          </View>
+        ) : authenticatorOnly ? (
+          <AuthenticatorList entries={visible} onOpen={open} />
+        ) : (
+          <FlatList
+            style={{ flex: 1 }}
+            data={visible}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            getItemLayout={getItemLayout}
+            ItemSeparatorComponent={Separator}
+            initialNumToRender={12}
+            maxToRenderPerBatch={12}
+            windowSize={7}
+            removeClippedSubviews
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            // Room so the floating button never covers the last row.
+            contentContainerStyle={{ paddingBottom: 88, paddingTop: 4 }}
+          />
+        )}
+      </View>
+
+      {active.length > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add entry"
+          onPress={() => setAdding(true)}
+          style={({ pressed }) => [
+            {
+              position: 'absolute',
+              right: spacing.lg,
+              bottom: spacing.lg,
+              width: 60,
+              height: 60,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: radius.pill,
+              backgroundColor: colors.primary,
+              opacity: pressed ? 0.9 : 1,
+              transform: [{ scale: pressed ? 0.95 : 1 }],
+            },
+            elevation.float,
+          ]}
+        >
+          {/* A plus drawn with two bars, so it is crisp and exactly centred. */}
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                width: 22,
+                height: 3,
+                borderRadius: 2,
+                backgroundColor: colors.onPrimary,
+              }}
+            />
+            <View
+              style={{
+                position: 'absolute',
+                width: 3,
+                height: 22,
+                borderRadius: 2,
+                backgroundColor: colors.onPrimary,
+              }}
             />
           </View>
-        </View>
+        </Pressable>
       ) : null}
 
-      {active.length === 0 ? (
-        <EmptyState title="No entries yet" message="Add your first password to get started." />
-      ) : visible.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
-          <EmptyState
-            title={onlyAuthenticator ? 'No codes' : 'No matches'}
-            message={
-              onlyAuthenticator
-                ? 'No entry has a 2FA code yet. Open an entry and choose Add 2FA.'
-                : 'Nothing fits your search and filters.'
-            }
-          />
-          {filtering ? (
-            <Button title="Clear search and filters" variant="secondary" onPress={clearFilters} />
-          ) : null}
-        </View>
-      ) : (
-        <>
-          {filtering ? (
-            <Text style={[typography.caption, { color: colors.textMuted }]}>
-              {visible.length} of {active.length}
-            </Text>
-          ) : null}
-          {authenticatorOnly ? (
-            <AuthenticatorList entries={visible} onOpen={open} />
-          ) : (
-            <FlatList
-              style={{ flex: 1 }}
-              data={visible}
-              keyExtractor={keyExtractor}
-              renderItem={renderItem}
-              getItemLayout={getItemLayout}
-              ItemSeparatorComponent={Separator}
-              initialNumToRender={12}
-              maxToRenderPerBatch={12}
-              windowSize={7}
-              removeClippedSubviews
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-            />
-          )}
-        </>
-      )}
-
-      <Button title="Add entry" onPress={() => router.push('/entry/new')} />
-    </ScreenContainer>
+      <AddEntrySheet
+        visible={adding}
+        onClose={() => setAdding(false)}
+        onPick={(picked) => {
+          setAdding(false);
+          router.push(`/entry/new?type=${picked}`);
+        }}
+      />
+    </View>
   );
 }

@@ -33,13 +33,15 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         {
-          borderRadius: radius.md,
+          borderRadius: radius.pill,
           paddingVertical: spacing.md,
           paddingHorizontal: spacing.xl,
           gap: spacing.sm,
-          backgroundColor: filled ? accent : 'transparent',
-          borderColor: accent,
+          // Outline buttons get a soft tint instead of a bare border.
+          backgroundColor: filled ? accent : colors.primarySoft,
+          borderColor: filled ? accent : 'transparent',
           opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}
     >
@@ -55,7 +57,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    minHeight: 48,
+    minHeight: 52,
   },
-  text: { fontSize: 16 },
+  text: { fontSize: 16, fontWeight: '700' },
 });
