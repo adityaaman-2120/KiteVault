@@ -37,6 +37,14 @@ export type TotpParams = {
   period: number; // seconds
 };
 
+// An Android app the user has linked to a login for autofill. Apps are matched by package name
+// AND the SHA-256 of their signing certificate, so a look-alike or re-signed copy gets nothing.
+// Autofill only reads this; the screen to create links comes in a later step.
+export type AppLink = {
+  packageName: string;
+  certSha256: string; // upper-case hex, with or without colons
+};
+
 export type Entry = {
   id: string;
   type: EntryType;
@@ -48,6 +56,7 @@ export type Entry = {
   customFields: CustomField[];
   totpSecret?: string; // base32 secret of the one-time code
   totpParams?: TotpParams;
+  appLinks?: AppLink[];
   folderId?: string;
   favorite: boolean;
   createdAt: number; // epoch ms

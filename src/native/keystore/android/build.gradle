@@ -22,4 +22,6 @@ dependencies {
   implementation "androidx.biometric:biometric:1.1.0"
 
   testImplementation "junit:junit:4.13.2"
+  // The Android JSON classes are only stubs in unit tests; this is the same API for real.
+  testImplementation "org.json:json:20240303"
 }

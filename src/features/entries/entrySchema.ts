@@ -161,6 +161,8 @@ export function formToEntry(
   // Two-factor settings are changed on their own screen, not in this form.
   if (existing?.totpSecret) entry.totpSecret = existing.totpSecret;
   if (existing?.totpParams) entry.totpParams = existing.totpParams;
+  // Apps linked for autofill are not edited in this form; keep them.
+  if (existing?.appLinks) entry.appLinks = existing.appLinks;
   if (form.type === 'card') entry.card = { ...form.card };
   if (form.type === 'identity') entry.identity = { ...form.identity };
   if (existing?.deletedAt !== undefined) entry.deletedAt = existing.deletedAt;

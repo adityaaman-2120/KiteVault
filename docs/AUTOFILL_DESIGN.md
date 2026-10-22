@@ -1,6 +1,6 @@
 # KiteVault Android autofill: design
 
-Status: **approved on 2026-10-22 with all recommendations (Q1 to Q9 as recommended in section 0 and 13).** No code written yet. Implementation follows the order in section 15, one step at a time.
+Status: **approved on 2026-10-22 with all recommendations (Q1 to Q9). The FILL flow is implemented (see Appendix A for what differs from this plan and Appendix B for the classes); saving and app linking are not.** Implementation follows the order in section 15, one step at a time.
 
 This document answers: how KiteVault can fill and save logins in Chrome and other apps without weakening the rules in `CLAUDE.md`, and what could go wrong.
 
@@ -441,3 +441,57 @@ Not changed: `app.json` and `plugins/` (no config plugin is planned; see section
 4. **Credential Manager provider** (Android 14+).
 
 Please answer Q1 to Q9 above, or just say "go with your recommendations", and tell me whether to start with step 1.
+
+---
+
+## Appendix A: what was built in the FILL step, and how it differs from the plan
+
+Built on 2026-10-22: the fill flow only. Saving new logins, creating app links, and the Credential Manager provider are later steps.
+
+**Differences from sections 1 to 15 above (all deliberate):**
+
+| Plan                                                         | What was done                                                                                                                                                              | Why                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No config plugin; declare the service in the module manifest | A small config plugin, `plugins/withAutofill.js`, declares the service, the activity and `<queries>`. The Kotlin code is **not copied**: it stays in the autolinked module | You asked for a plugin. Copying the sources would create two copies of every class. The module keeps the code and resources; the plugin only tells Android which classes are the service and the screen.                                                |
+| Stream-parse the vault JSON                                  | `org.json` (builds the whole tree, then copies out only logins)                                                                                                            | `android.util.JsonReader` is not available in plain unit tests. The tree and the plaintext bytes are dropped (and the bytes zeroed) right after parsing.                                                                                                |
+| "Search my vault" confirms and **links** the app             | "Search my vault" fills **once** after a warning and does **not** save a link                                                                                              | Saving a link means writing to the vault, which the service must never do. Links arrive with the save/link step. Until then apps are only matched if an entry already has an `appLinks` value (the data field exists; there is no screen to create it). |
+| Package visibility handled implicitly                        | `<queries>` for launcher apps                                                                                                                                              | Android 11+ hides other apps from a service. Needed to read the filled app's signing certificate. Verify on a device.                                                                                                                                   |
+| Dropdown can offer inline suggestions                        | Dropdown only                                                                                                                                                              | Inline suggestions are not part of v1.                                                                                                                                                                                                                  |
+
+**Rules in the code that you may want to know exist:** nothing is filled before the user taps the suggestion and passes the fingerprint/face check; with exactly one match it fills straight after the check, with several the user picks; the web address is trusted only from the browsers in `TrustedBrowserData` and only over https; sign-up forms (`newPassword`) are never filled; invisible or zero-size boxes are never filled or counted; a page whose boxes belong to different sites gets nothing.
+
+**Not verified here (needs your phone):** see `docs/AUTOFILL_TESTING.md`, section 7.
+
+## Appendix B: the Kotlin classes in simple words
+
+All live in `src/native/keystore/android/src/main/java/expo/modules/kitevaultkeystore/`. Classes marked (pure) use no Android classes, so their rules are unit tested on a normal computer (74 tests).
+
+**Shared with the biometric unlock**
+
+- `VaultKeyUnlocker`: runs the fingerprint / face check and returns the vault key. It first checks the rules (restart, 7 days, 5 uses), prepares the secure-hardware key, shows the system dialog, counts the use, and gives back the key. The app's own unlock screen and autofill both use it, so they follow identical rules.
+- `KeystoreModule`: the bridge for the app's biometric screens. It now calls `VaultKeyUnlocker` instead of containing the steps itself.
+
+**Understanding the request** (`autofill/`)
+
+- `KiteVaultAutofillService`: the part Android calls when the user taps a login box. It decides if the screen is a sign-in form and who is asking, then answers with one locked suggestion: "Unlock KiteVault to fill". It never reads the vault and shows no account names.
+- `StructureParser`: walks through the description of the other app's screen and writes down the few facts needed about each text box (hints, type, visible or not, which website). Remembers that a box inside a hidden area is hidden.
+- `ParsedScreen` / `FieldNode` (pure): plain notes about the screen and its boxes.
+- `FieldClassifier` (pure): finds the password box and the user-name box. Prefers clear hints, uses position only as a last resort, ignores invisible boxes, refuses sign-up forms.
+- `RequestOrigin` (pure): works out who is asking. A web address is believed only for a trusted browser, only over https, and only if every box belongs to the same site. Any other app is identified by its package name; its claimed web address is ignored.
+- `TrustedBrowsers` / `TrustedBrowserData`: the short list of browsers whose web address we believe, each with its real signing certificate (generated from Google's published list by `scripts/make-trusted-browsers.js`).
+- `AppIdentity`: asks Android for an app's display name (to show) and its signing certificate fingerprints (to compare).
+- `PendingFill`, `FillRequests`: the service's note to the unlock screen (who asks, which boxes), kept in memory. It holds no vault data.
+- `RequestRegistry` (pure): the notebook that gives out one-time random tickets (valid one minute, used once) so the unlock screen can only be started with a ticket the service made.
+
+**Unlocking and matching**
+
+- `AutofillAuthActivity`: the unlock-and-choose card shown over the other app. Gets the ticket, shows the fingerprint dialog naming who is asking, opens the vault read-only, picks the matching logins, and hands the chosen user name and password back to Android. Hides from screenshots and recent apps, ignores taps under an overlay, closes if the user leaves.
+- `VaultReader`: reads `vault.kvlt` (or its `.bak` while the app is mid-save), decrypts it with the platform AES-256-GCM, and copies out only the logins. Never writes anything; zeroes the key and plaintext.
+- `LoginMatcher` (pure): the single place that decides which logins may be offered. Websites by saved address; apps by linked package plus certificate. Never by title.
+- `DomainMatcher` (pure): strict website comparison (same host, or a sub-site of a registrable domain; punycode; no look-alikes).
+- `PublicSuffixList` (pure): knows which endings (`.com`, `.co.uk`, `github.io`) are shared, using the bundled Public Suffix List file.
+- `LoginRecord`, `AppLink`, `AppCertificates` (pure): the small data shapes passed around.
+
+**Talking to the app**
+
+- `AutofillModule`: lets the Settings > Autofill screen ask "is KiteVault the chosen autofill service?" and open Android's page to choose it. It never touches the vault.

@@ -24,8 +24,9 @@ class KeystoreModule : Module() {
   private val store: WrappedKeyStore
     get() = WrappedKeyStore(context)
 
-  // Only one fingerprint dialog at a time.
-  @Volatile private var promptInFlight = false
+  // The fingerprint rules and dialog are shared with autofill (see VaultKeyUnlocker).
+  private val unlocker: VaultKeyUnlocker
+    get() = VaultKeyUnlocker(context)
 
   override fun definition() = ModuleDefinition {
     Name("KitevaultKeystore")
@@ -60,20 +61,9 @@ class KeystoreModule : Module() {
       .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
 
   /** Why the master password is needed again, or null if biometrics are still allowed. */
-  private fun policyReason(): BiometricPolicy.Reason? {
-    val state = store.readPolicyState() ?: return BiometricPolicy.Reason.EXPIRED
-    return BiometricPolicy.reauthReason(
-      state,
-      android.os.SystemClock.elapsedRealtime(),
-      store.currentBootCount(),
-    )
-  }
+  private fun policyReason(): BiometricPolicy.Reason? = unlocker.policyReason()
 
-  private fun disableInternal() {
-    runCatching { KeystoreKeys.delete() }
-    runCatching { store.deleteBlob() }
-    runCatching { store.clearPolicyState() }
-  }
+  private fun disableInternal() = unlocker.disable()
 
   private fun unlockState(): String {
     if (!store.hasBlob() || !KeystoreKeys.exists()) return "disabled"
@@ -109,7 +99,9 @@ class KeystoreModule : Module() {
     if (biometricStatus() != BiometricManager.BIOMETRIC_SUCCESS) {
       return fail(ErrorCode.UNAVAILABLE, "No strong biometrics are set up on this device.")
     }
-    if (promptInFlight) return fail(ErrorCode.BUSY, "A biometric prompt is already open.")
+    if (VaultKeyUnlocker.promptInFlight.get()) {
+      return fail(ErrorCode.BUSY, "A biometric prompt is already open.")
+    }
 
     val cipher =
       try {
@@ -120,7 +112,7 @@ class KeystoreModule : Module() {
         return fail(ErrorCode.INTERNAL, "Could not create the secure key.")
       }
 
-    promptInFlight = true
+    VaultKeyUnlocker.promptInFlight.set(true)
     BiometricPrompter.authenticate(
       activity,
       cipher,
@@ -128,7 +120,7 @@ class KeystoreModule : Module() {
       subtitle = "Confirm to protect your vault with your fingerprint or face.",
       negativeButton = "Cancel",
     ) { result ->
-      promptInFlight = false
+      VaultKeyUnlocker.promptInFlight.set(false)
       when (result) {
         is PromptResult.Success ->
           try {
@@ -150,67 +142,19 @@ class KeystoreModule : Module() {
   }
 
   private fun unlock(promise: Promise) {
-    fun fail(code: String, message: String) = promise.reject(code, message, null)
+    val activity =
+      fragmentActivity()
+        ?: return promise.reject(ErrorCode.NO_ACTIVITY, "No screen is showing.", null)
 
-    val activity = fragmentActivity() ?: return fail(ErrorCode.NO_ACTIVITY, "No screen is showing.")
-    if (!store.hasBlob() || !KeystoreKeys.exists()) {
-      return fail(ErrorCode.NOT_ENABLED, "Biometric unlock is not turned on.")
-    }
-
-    val reason = policyReason()
-    if (reason != null) return fail(ErrorCode.REAUTH_REQUIRED, reason.name)
-
-    val status = biometricStatus()
-    if (status == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ||
-      status == BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
-    ) {
-      disableInternal()
-      return fail(ErrorCode.UNAVAILABLE, "Biometrics were removed from this device.")
-    }
-    if (status != BiometricManager.BIOMETRIC_SUCCESS) {
-      return fail(ErrorCode.UNAVAILABLE, "Biometrics are temporarily unavailable.")
-    }
-
-    val blob = store.readBlob()
-    val key = KeystoreKeys.get()
-    if (blob == null || key == null) {
-      disableInternal()
-      return fail(ErrorCode.KEY_INVALIDATED, "The stored key is no longer available.")
-    }
-
-    val cipher =
-      try {
-        KeystoreKeys.decryptCipher(key, blob.iv)
-      } catch (e: KeyPermanentlyInvalidatedException) {
-        disableInternal()
-        return fail(ErrorCode.KEY_INVALIDATED, "Your biometrics changed.")
-      } catch (e: Exception) {
-        disableInternal()
-        return fail(ErrorCode.KEY_INVALIDATED, "The stored key could not be used.")
-      }
-
-    if (promptInFlight) return fail(ErrorCode.BUSY, "A biometric prompt is already open.")
-    promptInFlight = true
-    BiometricPrompter.authenticate(
+    unlocker.unlock(
       activity,
-      cipher,
       title = "Unlock KiteVault",
       subtitle = "Use your fingerprint or face.",
       negativeButton = "Use master password",
-    ) { result ->
-      promptInFlight = false
-      when (result) {
-        is PromptResult.Success ->
-          try {
-            val vaultKey = result.cipher.doFinal(blob.ciphertext)
-            store.countBiometricUnlock() // saved before the key is handed over
-            promise.resolve(vaultKey)
-          } catch (e: Exception) {
-            // The stored data does not decrypt: it was damaged or does not match the key.
-            disableInternal()
-            fail(ErrorCode.KEY_INVALIDATED, "The stored key could not be read.")
-          }
-        is PromptResult.Failure -> fail(result.code, result.message)
+    ) { outcome ->
+      when (outcome) {
+        is UnlockOutcome.Key -> promise.resolve(outcome.bytes)
+        is UnlockOutcome.Failure -> promise.reject(outcome.code, outcome.message, null)
       }
     }
   }

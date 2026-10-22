@@ -29,6 +29,7 @@ export {
   type EntryType,
   type IdentityDetails,
   type Folder,
+  type AppLink,
   type PasswordHistoryItem,
   type TotpParams,
   type VaultData,

@@ -36,6 +36,16 @@ export const EXTRA_COMPONENTS: ExtraComponent[] = [
     note: 'Root detection for the warning banner.',
   },
   {
+    name: 'Public Suffix List',
+    license: 'MPL-2.0',
+    url: 'https://publicsuffix.org',
+    note:
+      'Bundled copy of the list of shared web address endings (such as .co.uk and github.io) that ' +
+      'autofill uses to match websites strictly. Copyright the Mozilla Foundation and contributors, ' +
+      'licensed under the Mozilla Public License 2.0 (https://mozilla.org/MPL/2.0/). The file is ' +
+      'included unchanged; its source is https://publicsuffix.org/list/public_suffix_list.dat.',
+  },
+  {
     name: 'Hermes JavaScript engine',
     license: 'MIT',
     url: 'https://github.com/facebook/hermes',

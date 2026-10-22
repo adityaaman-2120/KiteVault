@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings of the KiteVault autofill service (read by Android).
+  - No <compatibility-package>: Android's "compatibility mode" (reading other apps through the
+    accessibility system) is deliberately NOT used. Chrome stopped supporting it, and it makes
+    the web address of a page much harder to trust.
+  - No settingsActivity yet: the Autofill screen inside KiteVault is the settings page.
+-->
+<autofill-service xmlns:android="http://schemas.android.com/apk/res/android" />

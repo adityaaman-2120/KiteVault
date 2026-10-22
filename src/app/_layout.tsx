@@ -94,6 +94,7 @@ export default function RootLayout() {
           <Stack.Screen name="entry/totp/[id]" options={{ title: 'Two-factor code' }} />
           <Stack.Screen name="trash" options={{ title: 'Trash' }} />
           <Stack.Screen name="folders" options={{ title: 'Folders' }} />
+          <Stack.Screen name="autofill" options={{ title: 'Autofill' }} />
           <Stack.Screen name="security-check" options={{ title: 'Security check' }} />
           <Stack.Screen name="import" options={{ title: 'Import passwords' }} />
           <Stack.Screen name="export" options={{ title: 'Export' }} />

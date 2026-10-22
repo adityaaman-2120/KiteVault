@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 
 import { Button, Card, ChoiceGroup, ScreenContainer, SectionHeader } from '@/components';
 import { appVersion } from '@/features/about/AboutScreen';
+import { AutofillCard } from '@/features/autofill/AutofillCard';
 import { BackupCard } from '@/features/backup/BackupCard';
 import { BiometricSettingsCard } from '@/features/biometric/BiometricSettingsCard';
 import { DataInfoCard } from '@/features/data/DataInfoCard';
@@ -60,6 +61,7 @@ export function SettingsForm() {
       <SecurityCheckCard />
       <RecoveryKeyCard />
       <BiometricSettingsCard />
+      <AutofillCard />
       <PrivacySettingsCard />
       <Button title="Lock now" variant="secondary" onPress={lock} />
 

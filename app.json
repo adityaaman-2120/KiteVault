@@ -52,6 +52,7 @@
         }
       ],
       "./plugins/withNoBackup",
+      "./plugins/withAutofill",
       [
         "./plugins/withGoogleBackup",
         {

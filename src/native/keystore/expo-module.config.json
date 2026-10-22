@@ -1,6 +1,9 @@
 {
   "platforms": ["android"],
   "android": {
-    "modules": ["expo.modules.kitevaultkeystore.KeystoreModule"]
+    "modules": [
+      "expo.modules.kitevaultkeystore.KeystoreModule",
+      "expo.modules.kitevaultkeystore.autofill.AutofillModule"
+    ]
   }
 }
