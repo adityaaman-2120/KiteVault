@@ -19,7 +19,7 @@ describe('buildRecoveryHtml', () => {
 
   test('contains the 8 groups, numbered', () => {
     text.split('-').forEach((group, i) => {
-      expect(html).toContain(`<td class="n">${i + 1}</td><td class="g">${group}</td>`);
+      expect(html).toContain(`<span class="n">${i + 1}</span><span class="g">${group}</span>`);
     });
   });
 
@@ -44,7 +44,29 @@ describe('buildRecoveryHtml', () => {
   });
 
   test('has no account, name or vault details, only the key and the date', () => {
-    expect(html).not.toMatch(/@|password manager vault of/i);
+    // No email address (the CSS "@page" rule is not one).
+    expect(html).not.toMatch(/w@w|password manager vault of/i);
+  });
+
+  test('is branded: the kite drawn inline, the name and "by Kitelux"', () => {
+    expect(html).toMatch(/<svg[\s\S]*<\/svg>/);
+    expect(html).toContain('Kite<span>Vault</span>');
+    expect(html).toContain('by Kitelux');
+    expect(html).toContain('CONFIDENTIAL');
+  });
+
+  test('says which characters count and that the dashes and numbers are not part of the key', () => {
+    expect(html).toMatch(/dashes, spaces and\s+the numbers above each box are not part of the key/);
+  });
+
+  test('has the keep-it-safe checklist and a place to write where the page is kept', () => {
+    expect(html).toContain('Keep it safe');
+    expect(html.match(/<span class="b"><\/span>/g)).toHaveLength(4);
+    expect(html).toMatch(/never write your master password here/i);
+  });
+
+  test('warns that a new recovery key makes this one stop working', () => {
+    expect(html).toMatch(/this one stops working/);
   });
 
   test('needs exactly 8 groups', () => {

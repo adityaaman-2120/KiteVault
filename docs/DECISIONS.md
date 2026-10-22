@@ -569,3 +569,11 @@ Details and procedures: `docs/RELEASE_POLISH.md`.
 - **Only with the app in front:** if the app is not active when the screen appears, it waits until it is, because the system prompt cannot show otherwise.
 - Not changed: when biometric unlock stops being usable (restart, 7 days, 5 unlocks, changed fingerprints), the screen behaves as before and asks for the master password. Other failures (for example too many wrong fingers) are still explained.
 - Tests: `src/features/biometric/__tests__/unlockBiometricUi.test.tsx`.
+
+## Recovery key page (PDF) redesign (2026-10-22)
+
+- **Layout:** one page, branded header (the kite drawn as inline SVG, "KiteVault", "by Kitelux", a CONFIDENTIAL tag), the key in a 4 x 2 grid of numbered boxes in large monospace, a plain-language note on the characters, three "how to use it" steps, a "keep it safe" checklist, a blank line for "where I keep this page", and a footer saying a new key makes this one stop working. Built in `src/features/recovery/recoveryPdfTemplate.ts`.
+- **From looking at others** (1Password Emergency Kit, Proton, Bitwarden emergency sheets, forum threads about typing printed codes): a branded sheet people recognise; the key large and in monospace because O/0 and I/l/1 get confused in other fonts; saying outright that dashes and spaces are not part of the key; storing the paper offline.
+- **Left out on purpose:** a QR code (KiteVault has no QR recovery, and a code only gives one more thing to photograph), any account name, email or vault detail, and any field for the master password (the page tells the reader never to write it there).
+- **Unchanged rules:** no scripts, nothing loaded from the internet (the logo is inline), and it is printed with `printAsync`, never saved as a file in the app folder.
+- **Checked** by rendering the generated HTML to a page-sized image and a PDF on a computer (one page). It has not been printed or saved as a PDF from an Android phone yet, where the system print service may use different fonts and margins.
