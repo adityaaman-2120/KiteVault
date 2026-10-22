@@ -97,7 +97,7 @@ export function SettingsForm() {
         <Section title="Data">
           <DataInfoCard />
           <DataTransferCard />
-          <EraseVaultCard />
+          <EraseVaultCard requireAuth />
         </Section>
 
         <Section title="About">

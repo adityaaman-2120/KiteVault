@@ -552,3 +552,12 @@ Details and procedures: `docs/RELEASE_POLISH.md`.
 - **Backup pending mark** is cleared after a successful upload (and only if no save happened meanwhile), not before it starts.
 - **Small JSON files** (settings, attempt counter) are written with a temporary file and rename, like the vault.
 - **Privacy text** now describes both optional online features. "No analytics" still needs the network capture before it is claimed in the store listing.
+
+## Erasing the vault asks who you are first (2026-10-22)
+
+- **What:** in Settings, "Erase vault" first asks for the master password (or the phone's fingerprint / face, when biometric unlock is on). Only after that does the existing step appear, where `ERASE` must be typed. Before, typing `ERASE` was enough for anyone holding the unlocked phone.
+- **Password check:** `verifyMasterPassword` through `runWithAttemptLimit`, the same path as creating a recovery key, so wrong guesses count against the shared delay. The password is cleared from the field as soon as the check ends and is never stored.
+- **Fingerprint / face:** the prompt comes from the native `unlockWithBiometrics`. Passing the phone's own prompt counts as proof; the vault key it returns is wiped at once and not used. **Side effect:** that call counts toward the native "5 biometric unlocks, then ask for the password" counter, the same as a normal biometric unlock.
+- **Not asked on the Unlock screen:** the same erase card is shown there (`requireAuth` is off). Someone who forgot the master password must still be able to erase and restore from Drive, so no password is asked there.
+- **Not changed:** what gets erased, and the typed `ERASE` step.
+- Tests: `src/features/data/__tests__/erase.test.tsx`.

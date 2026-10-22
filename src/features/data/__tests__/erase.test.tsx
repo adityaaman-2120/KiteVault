@@ -219,3 +219,79 @@ describe('DataInfoCard', () => {
     expect(DATA_INFO).toContain('Google Drive');
   });
 });
+
+describe('EraseVaultCard while the vault is unlocked (requireAuth)', () => {
+  beforeEach(setUpFullyConfiguredApp);
+
+  const start = () => fireEvent.press(screen.getByRole('button', { name: 'Erase vault' }));
+  const typePassword = (text: string) =>
+    fireEvent.changeText(screen.getByLabelText('Master password'), text);
+
+  test('asks for the master password first and shows no erase confirmation yet', async () => {
+    await render(<EraseVaultCard requireAuth />);
+    await start();
+
+    expect(screen.getByText(/Confirm it.s you/)).toBeTruthy();
+    expect(screen.queryByLabelText('Type ERASE to confirm')).toBeNull();
+    expect(screen.queryByText(ERASE_WARNING)).toBeNull();
+    expect(vaultFile().exists).toBe(true);
+  });
+
+  test('a wrong password is refused and nothing is erased', async () => {
+    await render(<EraseVaultCard requireAuth />);
+    await start();
+    await typePassword('not the password');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByText('Wrong password. Please try again.')).toBeTruthy();
+    expect(screen.queryByLabelText('Type ERASE to confirm')).toBeNull();
+    expect(vaultFile().exists).toBe(true);
+    expect(screen.getByLabelText('Master password').props.value).toBe(''); // never kept
+  });
+
+  test('the right password leads to typing ERASE, and then it erases everything', async () => {
+    await render(<EraseVaultCard requireAuth />);
+    await start();
+    await typePassword(PASSWORD);
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByText(ERASE_WARNING)).toBeTruthy();
+    expect(vaultFile().exists).toBe(true); // still nothing erased
+    await fireEvent.changeText(screen.getByLabelText('Type ERASE to confirm'), 'ERASE');
+    await fireEvent.press(screen.getByRole('button', { name: 'Erase everything' }));
+
+    await waitFor(() => expect(useSessionStore.getState().status).toBe('no-vault'));
+    expect(vaultFile().exists).toBe(false);
+  });
+
+  test('the fingerprint / face button is an alternative to the password', async () => {
+    await render(<EraseVaultCard requireAuth />);
+    await start();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Use fingerprint or face' }));
+
+    expect(await screen.findByText(ERASE_WARNING)).toBeTruthy();
+    expect(fakeNative.unlockWithBiometrics).toHaveBeenCalled();
+    expect(vaultFile().exists).toBe(true);
+  });
+
+  test('a cancelled fingerprint prompt does not let the erase continue', async () => {
+    fakeNative.unlockWithBiometrics.mockRejectedValueOnce(new Error('cancelled'));
+    await render(<EraseVaultCard requireAuth />);
+    await start();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Use fingerprint or face' }));
+
+    expect(await screen.findByText(/was not confirmed/)).toBeTruthy();
+    expect(screen.queryByLabelText('Type ERASE to confirm')).toBeNull();
+  });
+
+  test('Cancel closes it, and the next time starts with the password again', async () => {
+    await render(<EraseVaultCard requireAuth />);
+    await start();
+    await typePassword(PASSWORD);
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    await start();
+
+    expect(screen.getByLabelText('Master password').props.value).toBe('');
+    expect(screen.queryByLabelText('Type ERASE to confirm')).toBeNull();
+  });
+});
