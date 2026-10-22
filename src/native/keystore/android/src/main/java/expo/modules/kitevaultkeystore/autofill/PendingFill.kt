@@ -1,5 +1,6 @@
 package expo.modules.kitevaultkeystore.autofill
 
+import android.service.autofill.SaveInfo
 import android.view.autofill.AutofillId
 
 /**
@@ -19,6 +20,8 @@ internal class PendingFill(
   val displayName: String,
   val passwordId: AutofillId,
   val usernameId: AutofillId?,
+  /** Asks Android to offer to save the form afterwards; null when the origin is not trusted. */
+  val saveInfo: SaveInfo? = null,
 )
 
 /** The process-wide notebook of fill requests that are waiting for the user. */

@@ -178,4 +178,67 @@ class FieldClassifierTest {
     val form = FieldClassifier.findLoginForm(listOf(f(0) { inputType = 0x2 or 0x10 }))
     assertNotNull(form)
   }
+
+  // --- the form to offer to save ---
+
+  @Test
+  fun saveFormAcceptsSignInSignUpAndChangePassword() {
+    val signIn = FieldClassifier.findSaveForm(listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("password") }))
+    assertEquals(1, signIn!!.password.index)
+    val signUp =
+      FieldClassifier.findSaveForm(
+        listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("newPassword") }, f(2) { hints = listOf("newPassword") })
+      )
+    assertEquals(1, signUp!!.password.index)
+    assertEquals(0, signUp.username!!.index)
+    val change =
+      FieldClassifier.findSaveForm(listOf(f(0) { hints = listOf("password") }, f(1) { hints = listOf("newPassword") }))
+    assertEquals(1, change!!.password.index) // the NEW password is the one to save
+  }
+
+  @Test
+  fun saveFormNeedsAPasswordBox() {
+    assertNull(FieldClassifier.findSaveForm(listOf(f(0) { hints = listOf("username") })))
+    assertNull(FieldClassifier.findSaveForm(emptyList()))
+  }
+
+  @Test
+  fun saveFormWithTypedValuesUsesTheBoxThatHasText() {
+    val fields = listOf(f(0) { hints = listOf("password") }, f(1) { hints = listOf("newPassword") })
+    assertEquals(1, FieldClassifier.findSaveForm(fields, listOf("old", "new"))!!.password.index)
+    assertEquals(1, FieldClassifier.findSaveForm(fields, listOf(null, "new"))!!.password.index)
+    assertNull(FieldClassifier.findSaveForm(fields, listOf("old", "")))
+    assertNull(FieldClassifier.findSaveForm(fields, listOf(null, null)))
+  }
+
+  @Test
+  fun saveFormRefusesPasswordsThatDisagree() {
+    val fields = listOf(f(0) { hints = listOf("newPassword") }, f(1) { hints = listOf("newPassword") })
+    assertNull(FieldClassifier.findSaveForm(fields, listOf("abc", "abd")))
+    assertEquals(0, FieldClassifier.findSaveForm(fields, listOf("abc", "abc"))!!.password.index)
+  }
+
+  @Test
+  fun saveFormWithSeveralCurrentPasswordsNeedsFocusBeforeAnythingIsTyped() {
+    val fields = listOf(f(0) { hints = listOf("password") }, f(1) { hints = listOf("password") })
+    assertNull(FieldClassifier.findSaveForm(fields))
+    val focused = listOf(f(0) { hints = listOf("password") }, f(1) { hints = listOf("password"); focused = true })
+    assertEquals(1, FieldClassifier.findSaveForm(focused)!!.password.index)
+  }
+
+  @Test
+  fun saveFormPrefersVisibleBoxesButFallsBackToHiddenOnes() {
+    val hiddenOnly = listOf(f(0) { hints = listOf("password"); usable = false })
+    assertNotNull(FieldClassifier.findSaveForm(hiddenOnly))
+    val both = listOf(f(0) { hints = listOf("password"); usable = false }, f(1) { hints = listOf("password") })
+    assertEquals(1, FieldClassifier.findSaveForm(both)!!.password.index)
+  }
+
+  @Test
+  fun signUpIsStillNotAFillForm() {
+    // Filling and saving are different questions: a sign-up form is saved but never filled.
+    val fields = listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("newPassword") })
+    assertNull(FieldClassifier.findLoginForm(fields))
+    assertNotNull(FieldClassifier.findSaveForm(fields))
+  }
 }

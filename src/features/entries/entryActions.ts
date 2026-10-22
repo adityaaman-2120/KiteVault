@@ -5,7 +5,7 @@ import { purgeExpiredTrash, newId } from './model';
 import { withoutSeedEntries, withSeedEntries } from './seed';
 
 export class EntryActionError extends Error {
-  readonly code: 'NOT_FOUND' | 'INVALID_FOLDER';
+  readonly code: 'NOT_FOUND' | 'INVALID_FOLDER' | 'INVALID_ENTRY';
 
   constructor(code: EntryActionError['code'], message: string) {
     super(message);

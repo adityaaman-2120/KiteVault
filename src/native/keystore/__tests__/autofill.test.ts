@@ -54,3 +54,109 @@ describe('with the native module', () => {
     expect(load({ openAutofillSettings: () => false }).openAutofillSettings()).toBe(false);
   });
 });
+
+describe('logins waiting to be saved', () => {
+  const web = {
+    id: 'a',
+    createdAt: 5,
+    kind: 'WEB',
+    username: 'alice',
+    password: 'pw',
+    host: 'bank.com',
+  };
+  const app = {
+    id: 'b',
+    createdAt: 6,
+    kind: 'APP',
+    username: 'bob',
+    password: 'pw2',
+    packageName: 'com.example.app',
+    label: 'Example',
+    certSha256: 'AABB',
+  };
+
+  test('without the native module nothing is waiting and nothing throws', async () => {
+    const autofill = load(null);
+    expect(await autofill.getPendingSaves()).toEqual([]);
+    expect(await autofill.getPendingSaveCount()).toBe(0);
+    await expect(autofill.discardPendingSave('x')).resolves.toBeUndefined();
+    await expect(autofill.clearPendingSaves()).resolves.toBeUndefined();
+  });
+
+  test('records from the native side become typed values', async () => {
+    const autofill = load({ getPendingSaves: async () => [web, app] });
+    expect(await autofill.getPendingSaves()).toEqual([
+      {
+        id: 'a',
+        createdAt: 5,
+        username: 'alice',
+        password: 'pw',
+        origin: { kind: 'web', host: 'bank.com' },
+      },
+      {
+        id: 'b',
+        createdAt: 6,
+        username: 'bob',
+        password: 'pw2',
+        origin: {
+          kind: 'app',
+          packageName: 'com.example.app',
+          label: 'Example',
+          certSha256: 'AABB',
+        },
+      },
+    ]);
+  });
+
+  test('records with the wrong shape are dropped, not trusted', async () => {
+    const autofill = load({
+      getPendingSaves: async () => [
+        { ...web, id: '' },
+        { ...web, password: '' },
+        { ...web, host: null },
+        { ...web, kind: 'OTHER' },
+        { ...app, certSha256: null },
+        { ...app, packageName: 5 },
+        { ...web, username: 5 },
+        null,
+        'x',
+        { ...app, label: null }, // the package name is used when there is no name
+      ],
+    });
+    const list = await autofill.getPendingSaves();
+    expect(list).toHaveLength(1);
+    expect(list[0]!.origin).toMatchObject({ kind: 'app', label: 'com.example.app' });
+  });
+
+  test('a failing native call gives an empty answer', async () => {
+    const boom = async () => {
+      throw new Error('boom');
+    };
+    const autofill = load({
+      getPendingSaves: boom,
+      getPendingSaveCount: boom,
+      discardPendingSave: boom,
+      clearPendingSaves: boom,
+    });
+    expect(await autofill.getPendingSaves()).toEqual([]);
+    expect(await autofill.getPendingSaveCount()).toBe(0);
+    await expect(autofill.discardPendingSave('x')).resolves.toBeUndefined();
+    await expect(autofill.clearPendingSaves()).resolves.toBeUndefined();
+  });
+
+  test('the count is a plain number, and delete passes the id on', async () => {
+    const discard = jest.fn(async () => true);
+    const clear = jest.fn(async () => {});
+    const autofill = load({
+      getPendingSaveCount: async () => 2,
+      discardPendingSave: discard,
+      clearPendingSaves: clear,
+    });
+    expect(await autofill.getPendingSaveCount()).toBe(2);
+    await autofill.discardPendingSave('abc');
+    expect(discard).toHaveBeenCalledWith('abc');
+    await autofill.clearPendingSaves();
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(await load({ getPendingSaveCount: async () => 'many' }).getPendingSaveCount()).toBe(0);
+  });
+});

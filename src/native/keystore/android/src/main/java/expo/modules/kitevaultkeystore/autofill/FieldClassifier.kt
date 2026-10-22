@@ -100,11 +100,54 @@ internal object FieldClassifier {
         else -> passwords.firstOrNull { it.isFocused } ?: return null
       }
 
-    // The user name is a box in the same web page that comes before the password box.
+    return LoginForm(password, pickUsername(usable, password))
+  }
+
+  /** The user name is a box on the same web page that comes before the password box. */
+  private fun pickUsername(usable: List<FieldNode>, password: FieldNode): FieldNode? {
     val before = usable.filter { it.index < password.index && it.webDomain == password.webDomain }
-    val username =
-      before.lastOrNull { looksLikeUsername(it) }
-        ?: before.lastOrNull { isPlainText(it) }
-    return LoginForm(password, username)
+    return before.lastOrNull { looksLikeUsername(it) } ?: before.lastOrNull { isPlainText(it) }
+  }
+
+  private fun isNewPassword(f: FieldNode) =
+    hasHint(f, HINT_NEW_PASSWORD) || f.htmlAutocomplete.equals("new-password", true)
+
+  /**
+   * Finds the form to OFFER TO SAVE: a sign-in form, a sign-up form or a change-password form.
+   *
+   * In simple words: this is the "save" twin of [findLoginForm]. A sign-up form is exactly the
+   * case where saving matters, so a NEW password box is accepted here. If the form has a new
+   * password box, that is the password to save (not the old one next to it).
+   *
+   * [values] are what the user typed, by box position. When it is null (at the time the form is
+   * first shown, before anything is typed) only the shape of the form is looked at. When given,
+   * the chosen password box must contain text, and two password boxes with different text (a typo
+   * in the "confirm" box, or two different passwords) mean "do not save".
+   *
+   * Boxes that are not visible are used only if no visible password box exists: after a form is
+   * submitted the page may already be gone when Android asks.
+   */
+  fun findSaveForm(fields: List<FieldNode>, values: List<String?>? = null): LoginForm? {
+    val usableOnly = fields.filter { it.isUsable }
+    val pool = if (usableOnly.any { isAnyPassword(it) }) usableOnly else fields
+    val passwords = pool.filter { isAnyPassword(it) }
+    if (passwords.isEmpty()) return null
+
+    val wanted = passwords.filter { isNewPassword(it) }.ifEmpty { passwords }
+    val password: FieldNode
+    if (values == null) {
+      // Nothing typed yet: several current-password boxes need focus to pick one.
+      val focused = wanted.firstOrNull { it.isFocused }
+      if (focused == null && wanted.size > 1 && !wanted.all { isNewPassword(it) }) return null
+      password = focused ?: wanted.first()
+    } else {
+      val typed =
+        wanted.map { it to values.getOrNull(it.index).orEmpty() }.filter { (_, text) -> text.isNotEmpty() }
+      if (typed.isEmpty()) return null
+      // "New password" and "confirm" must agree; two different passwords are not saved.
+      if (typed.map { (_, text) -> text }.toSet().size > 1) return null
+      password = typed.first().first
+    }
+    return LoginForm(password, pickUsername(pool, password))
   }
 }

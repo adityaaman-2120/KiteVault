@@ -281,7 +281,11 @@ class AutofillAuthActivity : FragmentActivity() {
     request.usernameId?.let {
       if (login.username.isNotEmpty()) dataset.setValue(it, AutofillValue.forText(login.username))
     }
-    val response = FillResponse.Builder().addDataset(dataset.build()).build()
+    val response =
+      FillResponse.Builder()
+        .addDataset(dataset.build())
+        .apply { request.saveInfo?.let { setSaveInfo(it) } }
+        .build()
     setResult(Activity.RESULT_OK, Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response))
     clear()
     finish()

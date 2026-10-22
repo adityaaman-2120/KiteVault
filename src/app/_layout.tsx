@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { startAutoBackup } from '@/features/backup/autoBackup';
+import { usePendingSaveWatcher } from '@/features/autofill/usePendingSaveWatcher';
 import { purgeExportFiles } from '@/features/transfer/exportFiles';
 import { useAutoLock } from '@/features/lock/useAutoLock';
 import {
@@ -29,6 +30,7 @@ export default function RootLayout() {
   const previousStatus = useRef(status);
 
   useAutoLock();
+  usePendingSaveWatcher(ready && status === 'unlocked');
   useScreenProtection();
 
   // Load preferences and find out whether a vault already exists before choosing the first screen.
@@ -95,6 +97,7 @@ export default function RootLayout() {
           <Stack.Screen name="trash" options={{ title: 'Trash' }} />
           <Stack.Screen name="folders" options={{ title: 'Folders' }} />
           <Stack.Screen name="autofill" options={{ title: 'Autofill' }} />
+          <Stack.Screen name="autofill-save" options={{ title: 'Save to KiteVault?' }} />
           <Stack.Screen name="security-check" options={{ title: 'Security check' }} />
           <Stack.Screen name="import" options={{ title: 'Import passwords' }} />
           <Stack.Screen name="export" options={{ title: 'Export' }} />

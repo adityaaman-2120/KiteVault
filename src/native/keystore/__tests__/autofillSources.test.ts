@@ -50,7 +50,10 @@ test.each([
 });
 
 test('the autofill code never writes to the vault files', () => {
-  const autofill = files.filter((f) => f.includes(`${path.sep}autofill${path.sep}`));
+  // Only the pending-save store writes a file, and it is its own encrypted file.
+  const autofill = files.filter(
+    (f) => f.includes(`${path.sep}autofill${path.sep}`) && !f.endsWith('PendingSaveStore.kt'),
+  );
   const offenders = autofill
     .filter((f) =>
       /\.(writeBytes|writeText|delete|renameTo)\(|FileOutputStream|AtomicFile/.test(code(f)),
@@ -70,4 +73,31 @@ test('the service answers with a locked suggestion and never fills by itself', (
   expect(service).toContain('setAuthentication');
   expect(service).not.toContain('addDataset');
   expect(service).not.toContain('AutofillValue');
+});
+
+test('the pending-save file is separate from the vault and is only written encrypted', () => {
+  const store = code(path.join(MAIN, 'autofill/PendingSaveStore.kt'));
+  const saves = code(path.join(MAIN, 'autofill/PendingSaves.kt'));
+  expect(store + saves).not.toContain('vault.kvlt');
+  expect(saves).toContain('kitevault_autofill_pending');
+  // the only bytes written are the sealed ones
+  expect(store).toContain('sealer.seal(plain)');
+  expect(store.match(/writeBytes\(/g)).toHaveLength(1);
+});
+
+test('nothing sensitive is put into an intent', () => {
+  const service = code(path.join(MAIN, 'autofill/KiteVaultAutofillService.kt'));
+  // The only extra the service ever sends is the random one-time ticket of a fill request.
+  expect(service.match(/putExtra\(/g)).toHaveLength(1);
+  expect(service).toContain('EXTRA_TICKET');
+  // The intent that opens KiteVault after a save has no extras at all.
+  expect(service).toContain('getLaunchIntentForPackage');
+  const activity = code(path.join(MAIN, 'autofill/AutofillAuthActivity.kt'));
+  expect(activity.match(/putExtra\(/g)).toHaveLength(1);
+  expect(activity).toContain('EXTRA_AUTHENTICATION_RESULT');
+});
+
+test('a pending save never prints its contents', () => {
+  const model = code(path.join(MAIN, 'autofill/PendingSave.kt'));
+  expect(model).toContain('override fun toString() = "PendingSave(${save.kind})"');
 });

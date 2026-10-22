@@ -4,6 +4,7 @@ import { useSessionStore } from '@/features/session/useSessionStore';
 import { clearAttemptState } from '@/features/lock/unlockService';
 import { googleAuth } from '@/features/backup/googleAuth';
 import { disableBiometricUnlock } from '@/native/keystore';
+import { clearPendingSaves } from '@/native/keystore/autofill';
 import { deleteJsonFile } from '@/storage/jsonFile';
 import { eraseVault, useVaultStore } from '@/vault';
 
@@ -15,7 +16,8 @@ export const isEraseConfirmed = (typed: string): boolean => typed === ERASE_WORD
 // Permanently removes everything KiteVault keeps on this phone and returns the app to the
 // welcome screen:
 //   1. the vault file (and its temporary / backup copies) and the unlocked data in memory,
-//   2. the biometric key in the Android Keystore, the encrypted copy of the vault key, and its counters,
+//   2. the biometric key in the Android Keystore, the encrypted copy of the vault key, its counters,
+//      and any logins waiting to be saved from autofill (with their key),
 //   3. all settings and the unlock-attempt counter.
 // Step 1 comes first and is checked: if the vault file cannot be deleted this throws and nothing
 // else is touched, so the app never claims to have erased a vault that is still there.
@@ -26,6 +28,8 @@ export async function eraseEverything(): Promise<void> {
   await eraseVault();
 
   disableBiometricUnlock();
+  // Logins that were waiting to be saved from another app are passwords too: remove them.
+  await clearPendingSaves();
   // Forget the Google sign-in on this phone. Any backup already in Google Drive stays there.
   await googleAuth.signOut().catch(() => undefined);
   deleteJsonFile(SETTINGS_FILE);

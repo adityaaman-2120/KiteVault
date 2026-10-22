@@ -17,7 +17,10 @@ export const CHROME_STEPS =
   'Chrome needs version 135 or newer. After choosing KiteVault below, open Chrome, then Settings > Autofill services, and choose "Autofill using another service".';
 
 export const WEBSITES_AND_APPS_NOTE =
-  'Websites are matched by their saved web address (https only, in browsers KiteVault knows). Apps are matched only when you have linked the app to a login, which arrives in a later update. Until then, in an app choose "Search my vault" and pick a login by hand; KiteVault warns you first.';
+  'Websites are matched by their saved web address (https only, in browsers KiteVault knows). Apps are matched only for logins that were saved from that same app. In any other app, choose "Search my vault" and pick a login by hand; KiteVault warns you first.';
+
+export const SAVING_NOTE =
+  'When you sign in or sign up somewhere, Android can ask "Save to KiteVault?". If you agree, KiteVault opens, asks you to unlock, and shows what will be saved. You can change the title, choose a folder, or update the password of a login you already have (the old password is kept in its history). Nothing is saved without that confirmation, and a waiting login is deleted after 10 minutes.';
 
 export function describeUnlock(state: UnlockState): { ok: boolean; text: string } {
   switch (state) {
@@ -127,6 +130,7 @@ export function AutofillScreen() {
         <Text style={[typography.heading, { color: colors.text }]}>How it works</Text>
         <Text style={[typography.body, { color: colors.textMuted }]}>{AUTOFILL_EXPLANATION}</Text>
         <Text style={[typography.body, { color: colors.textMuted }]}>{WEBSITES_AND_APPS_NOTE}</Text>
+        <Text style={[typography.body, { color: colors.textMuted }]}>{SAVING_NOTE}</Text>
       </Card>
 
       <Card>

@@ -5,8 +5,16 @@ import android.os.Build
 import android.view.View
 import android.view.autofill.AutofillId
 
-/** A [ParsedScreen] plus the Android `AutofillId` of each of its fields (same order). */
-internal class ParsedRequest(val screen: ParsedScreen, val ids: List<AutofillId>)
+/**
+ * A [ParsedScreen] plus the Android `AutofillId` of each of its fields (same order).
+ * [values] holds what is typed in each box, but ONLY when the parser was asked for it (when the
+ * user submits a form to be saved). When filling, it is empty and no typed text is ever read.
+ */
+internal class ParsedRequest(
+  val screen: ParsedScreen,
+  val ids: List<AutofillId>,
+  val values: List<String?> = emptyList(),
+)
 
 /**
  * Reads the screen description Android gives us and turns it into a [ParsedScreen].
@@ -15,15 +23,17 @@ internal class ParsedRequest(val screen: ParsedScreen, val ids: List<AutofillId>
  * screen. This class walks through that tree and writes down, for every text box, the few facts
  * we need. It remembers whether a box is truly visible (a box inside something hidden does not
  * count). It stops after a fixed number of boxes so a hostile app cannot make us work forever.
- * It does not look at, keep or log the text people typed.
+ * It reads the text people typed only when asked to (when a form is submitted to be saved),
+ * and never keeps or logs it.
  */
 internal object StructureParser {
   private const val MAX_NODES = 4000
   private const val MAX_DEPTH = 60
 
-  fun parse(structure: AssistStructure): ParsedRequest {
+  fun parse(structure: AssistStructure, withValues: Boolean = false): ParsedRequest {
     val fields = ArrayList<FieldNode>()
     val ids = ArrayList<AutofillId>()
+    val values = ArrayList<String?>()
     var visited = 0
 
     fun walk(node: AssistStructure.ViewNode, parentShown: Boolean, depth: Int) {
@@ -49,6 +59,9 @@ internal object StructureParser {
           )
         )
         ids.add(id)
+        if (withValues) {
+          values.add(node.autofillValue?.takeIf { it.isText }?.textValue?.toString())
+        }
       }
       for (i in 0 until node.childCount) walk(node.getChildAt(i), shown, depth + 1)
     }
@@ -57,6 +70,6 @@ internal object StructureParser {
       walk(structure.getWindowNodeAt(i).rootViewNode, parentShown = true, depth = 0)
     }
     val packageName = structure.activityComponent?.packageName.orEmpty()
-    return ParsedRequest(ParsedScreen(packageName, fields), ids)
+    return ParsedRequest(ParsedScreen(packageName, fields), ids, values)
   }
 }

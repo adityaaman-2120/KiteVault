@@ -391,3 +391,34 @@ describe('properties of the merge', () => {
     });
   });
 });
+
+describe('apps linked for autofill', () => {
+  const link = (pkg: string, cert = 'AABB') => ({ packageName: pkg, certSha256: cert });
+
+  test('links added on either device are all kept', () => {
+    const a = entry('x', { updatedAt: T + 2 * MIN, appLinks: [link('com.one')] });
+    const b = entry('x', { updatedAt: T + MIN, appLinks: [link('com.two')] });
+    const { data } = mergeVaults(vault([a]), vault([b]));
+    const merged = byId(data).get('x')!;
+    expect(merged.appLinks!.map((l) => l.packageName).sort()).toEqual(['com.one', 'com.two']);
+  });
+
+  test('the same link is not duplicated, however the certificate is written', () => {
+    const a = entry('x', { appLinks: [link('com.one', 'AA:BB')], updatedAt: T + MIN });
+    const b = entry('x', { appLinks: [link('com.one', 'aabb')] });
+    expect(byId(mergeVaults(vault([a]), vault([b])).data).get('x')!.appLinks).toHaveLength(1);
+  });
+
+  test('different links alone never create a "conflicting copy"', () => {
+    const a = entry('x', { updatedAt: T + 2 * MIN, appLinks: [link('com.one')] });
+    const b = entry('x', { updatedAt: T + 3 * MIN, appLinks: [link('com.two')] });
+    const { data, summary } = mergeVaults(vault([a]), vault([b]));
+    expect(data.entries).toHaveLength(1);
+    expect(summary.conflictingCopies).toBe(0);
+  });
+
+  test('an entry without links stays without the field', () => {
+    const { data } = mergeVaults(vault([entry('x')]), vault([entry('x', { updatedAt: T + MIN })]));
+    expect(byId(data).get('x')).not.toHaveProperty('appLinks');
+  });
+});

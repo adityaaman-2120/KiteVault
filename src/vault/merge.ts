@@ -1,6 +1,6 @@
 import { sha256, utf8Encode } from '@/crypto';
 
-import type { Entry, Folder, PasswordHistoryItem, VaultData } from './types';
+import type { AppLink, Entry, Folder, PasswordHistoryItem, VaultData } from './types';
 
 // Merges two copies of the same vault that were changed on two devices. Pure and deterministic:
 // no network, no clock, no randomness, so the same two inputs always give the same result.
@@ -63,6 +63,7 @@ function content(entry: Entry): string {
   delete rest.updatedAt;
   delete rest.passwordHistory;
   delete rest.deletedAt;
+  delete rest.appLinks; // links are combined, not a reason for a conflicting copy
   return canonical(rest);
 }
 
@@ -171,8 +172,33 @@ export function mergeVaults(
   };
 }
 
-// An entry that exists on both sides, and is not identical.
+// Apps linked for autofill on either device stay linked.
+function unionLinks(l: Entry, r: Entry): AppLink[] | undefined {
+  const all = [...(l.appLinks ?? []), ...(r.appLinks ?? [])];
+  if (all.length === 0) return undefined;
+  const seen = new Set<string>();
+  return all.filter((link) => {
+    const key = `${link.packageName}:${link.certSha256.replace(/:/g, '').toUpperCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function resolve(
+  l: Entry,
+  r: Entry,
+  options: MergeOptions,
+  summary: MergeSummary,
+  copies: Entry[],
+): Entry {
+  const result = resolveEntry(l, r, options, summary, copies);
+  const links = unionLinks(l, r);
+  return links ? { ...result, appLinks: links } : result;
+}
+
+// An entry that exists on both sides, and is not identical.
+function resolveEntry(
   l: Entry,
   r: Entry,
   options: MergeOptions,

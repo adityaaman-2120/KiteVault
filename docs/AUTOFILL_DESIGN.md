@@ -464,7 +464,7 @@ Built on 2026-10-22: the fill flow only. Saving new logins, creating app links, 
 
 ## Appendix B: the Kotlin classes in simple words
 
-All live in `src/native/keystore/android/src/main/java/expo/modules/kitevaultkeystore/`. Classes marked (pure) use no Android classes, so their rules are unit tested on a normal computer (74 tests).
+All live in `src/native/keystore/android/src/main/java/expo/modules/kitevaultkeystore/`. Classes marked (pure) use no Android classes, so their rules are unit tested on a normal computer (116 tests, including saving).
 
 **Shared with the biometric unlock**
 
@@ -495,3 +495,44 @@ All live in `src/native/keystore/android/src/main/java/expo/modules/kitevaultkey
 **Talking to the app**
 
 - `AutofillModule`: lets the Settings > Autofill screen ask "is KiteVault the chosen autofill service?" and open Android's page to choose it. It never touches the vault.
+
+---
+
+## Appendix C: the SAVE flow, as built
+
+Built on 2026-10-22. Test list: `docs/AUTOFILL_TESTING.md`, section 7.
+
+**Step by step**
+
+1. **The offer.** When a sign-in, sign-up or change-password form appears, the service adds a `SaveInfo` (password required, user name optional) to its answer, but only if it knows exactly who is asking (same strict origin rules as filling). On a sign-up form there is nothing to fill, so the answer contains only the `SaveInfo`. Android then shows its own "Save to KiteVault?" question after the user submits.
+2. **`onSaveRequest`.** Runs on a background thread. It reads the typed values (the parser reads typed text only for this request), picks the password and user name (`FieldClassifier.findSaveForm`: a NEW password box wins over the old one; two password boxes with different text mean "do not save"), and works out the origin (`SaveCapture`). A web page is saved only from a trusted browser on https, only if the page shows boxes of one site only. An app is saved by package name plus one of its signing certificates (an app whose certificate cannot be read is not saved). Anything else is dropped without a trace.
+3. **Parking.** The login goes into `kitevault_autofill_pending.bin`, sealed with a second Keystore key (`kitevault_autofill_pending_v1`: AES-256-GCM, hardware-backed, needs an unlocked phone, **no fingerprint**, because the user is busy in another app). Rules: at most 3 waiting, a newer save for the same account and place replaces the older one, each lives 10 minutes, an unreadable or altered file is deleted, writes go to a temporary file that is renamed over the real one. The service **never opens, changes or deletes `vault.kvlt`**.
+4. **Hand-over.** The service asks Android to open KiteVault (`SaveCallback.onSuccess(IntentSender)`, Android 9+; the intent is the plain launch intent **with no extras**). On Android 8 the user just opens the app. The app itself notices the waiting login: right after unlock, and whenever it returns to the front, it asks how many are waiting (a number only) and opens the review screen.
+5. **Review (in the app, only while unlocked).** Shows the host in large type (or "app name (package name)"), the user name, the password hidden until Show. The user can edit the title and choose a folder and press **Save to KiteVault**, or press **Not now**. If a live login for the same place and user name exists: **Update password** is the default (the old password goes to its history, newest first, at most 10); or **Save as new login**; or, if the password is identical, "Already saved". Matching for this is strict: same host (ignoring `www.`, scheme, path, port) or the same package with the same certificate; other subdomains, other users and the Trash do not count.
+6. **Cleaning up.** The waiting copy is deleted only after the vault was saved (or the user said Not now). A failed save keeps it, so the user can try again within the 10 minutes. Erasing the vault deletes all waiting logins and the sealing key.
+
+**App links.** Saving a login from an app adds `appLinks: [{ packageName, certSha256 }]` to the entry; updating a login from an app adds the link if it is missing. This is what makes autofill recognise that app next time. Nothing else creates links. Merging two copies of the vault keeps the links of both sides.
+
+**Where a password can exist, and for how long**
+
+| Place                                 | What                                  | How long                                          | Protection                                                                                |
+| ------------------------------------- | ------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Typed in the other app/page           | the user's own typing                 | until the form closes                             | not ours                                                                                  |
+| Android's save request to our service | in memory, on the service thread      | milliseconds                                      | memory only                                                                               |
+| `kitevault_autofill_pending.bin`      | sealed JSON                           | up to 10 minutes, or until saved/dismissed/erased | AES-256-GCM, hardware key, app-private folder, not backed up (`allowBackup=false`)        |
+| The intent that opens the app         | nothing                               |                                                   | no extras                                                                                 |
+| The review screen in the app          | JavaScript strings (cannot be zeroed) | until the screen closes                           | screenshots blocked                                                                       |
+| The vault                             | encrypted entry                       | permanent                                         | as every other entry                                                                      |
+| Logs, temporary files                 | nothing                               |                                                   | a test fails if the Kotlin code logs, and the temporary file only ever holds sealed bytes |
+
+**Limits (honest).** (1) The pending file's key needs no fingerprint, so code running inside KiteVault's own process (a rooted phone, a hook) could read a waiting login; that is the same exposure as the rest of the app and lasts at most 10 minutes. (2) JavaScript and Kotlin strings cannot be wiped from memory. (3) The "is there already a login for this" check in the app compares hosts exactly (no Public Suffix List and no punycode in JavaScript), so it can miss a match and offer a new login instead; it never offers the wrong login for updating. (4) Whether Chrome sends save requests to a third-party service is unknown until tested on a phone.
+
+## Appendix D: the classes added for saving
+
+- `PendingSave`, `NewSave`, `PendingSaveCodec` (pure): the note about a login waiting to be saved, and how it is written as JSON with its limits (3 records, 10 minutes). Printing a `PendingSave` shows nothing private.
+- `PendingSaveStore` (pure, with an injected `Sealer`): the small encrypted file. Parks, lists, removes, clears; drops expired or damaged contents; writes through a temporary file and a rename.
+- `KeystoreSealer`, `PendingSaves`: the real `Sealer` using the Android Keystore key, and the one shared store of the app, plus "wipe everything" for erasing.
+- `SaveCapture` (pure): decides what, if anything, to remember when a form is submitted (typed password, who it was typed for, trusted origin only).
+- `SaveInfos`: builds the note that tells Android to offer "Save to KiteVault?" for a form.
+- `FieldClassifier.findSaveForm` (pure): finds the form to save (sign-in, sign-up, change-password), choosing the new password and refusing disagreeing passwords.
+- `AutofillModule` (extended): lets the app count, read, and delete waiting logins.
