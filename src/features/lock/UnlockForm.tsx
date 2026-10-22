@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { AppState, Text, View } from 'react-native';
 
 import { BrandHeader, Button, ScreenContainer, TextAction, TextField } from '@/components';
 import { unlockWithBiometric } from '@/features/biometric/biometricService';
@@ -88,6 +88,31 @@ export function UnlockForm() {
     return () => clearInterval(timer);
   }, [waiting]);
 
+  // Once biometric unlock is set up it is the default way in: the fingerprint prompt opens by
+  // itself. It is tried once per visit to this screen, so cancelling it does not make it come
+  // back. It waits until the app is in front, because the system prompt cannot show otherwise.
+  const autoTried = useRef(false);
+  const autoBiometric = useRef(submitBiometric);
+  useEffect(() => {
+    autoBiometric.current = submitBiometric;
+  });
+  useEffect(() => {
+    if (biometricState !== 'ready' || autoTried.current) return;
+    const run = () => {
+      if (autoTried.current) return;
+      autoTried.current = true;
+      void autoBiometric.current(true);
+    };
+    if (AppState.currentState === 'active') {
+      run();
+      return;
+    }
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') run();
+    });
+    return () => subscription.remove();
+  }, [biometricState]);
+
   async function submit() {
     if (busy || waiting || password.length === 0) return;
     setBusy(true);
@@ -112,7 +137,9 @@ export function UnlockForm() {
     }
   }
 
-  async function submitBiometric() {
+  // `automatic` is the prompt that opens by itself. Dismissing that one is normal, so it says
+  // nothing; the password field and the fingerprint button are right there.
+  async function submitBiometric(automatic = false) {
     if (busy || biometricBusy) return;
     setBiometricBusy(true);
     setError(null);
@@ -120,7 +147,9 @@ export function UnlockForm() {
       await unlockWithBiometric();
       router.replace('/vault');
     } catch (e) {
-      setError(describeBiometricError(e));
+      if (!(automatic && e instanceof BiometricError && e.kind === 'cancelled')) {
+        setError(describeBiometricError(e));
+      }
       // The key may have been removed (changed biometrics, 5 unlocks, ...): refresh what we show.
       await refreshBiometric();
       setBiometricBusy(false);
@@ -176,7 +205,7 @@ export function UnlockForm() {
         <Button
           title={biometricBusy ? 'Waiting for fingerprint…' : 'Unlock with fingerprint'}
           variant="secondary"
-          onPress={submitBiometric}
+          onPress={() => void submitBiometric()}
           disabled={busy}
           loading={biometricBusy}
         />

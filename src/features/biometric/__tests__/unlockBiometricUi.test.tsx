@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert, AppState } from 'react-native';
 
 import { UnlockForm } from '@/features/lock/UnlockForm';
 import { clearAttemptState } from '@/features/lock/unlockService';
@@ -161,5 +161,77 @@ describe('master password unlock', () => {
     expect(await screen.findByText('Wrong password. Please try again.')).toBeTruthy();
     expect(fakeNative.recordPasswordUnlock).not.toHaveBeenCalled();
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+});
+
+describe('the fingerprint prompt opens by itself', () => {
+  // In these tests the app is in front, as it is when the lock screen appears on a phone.
+  const original = Object.getOwnPropertyDescriptor(AppState, 'currentState');
+  const setAppState = (value: string) =>
+    Object.defineProperty(AppState, 'currentState', { value, configurable: true, writable: true });
+  beforeEach(() => setAppState('active'));
+  afterEach(() => {
+    if (original) Object.defineProperty(AppState, 'currentState', original);
+  });
+
+  test('when biometric unlock is ready, with no tap needed', async () => {
+    await lockedVaultWithBiometrics();
+    await render(<UnlockForm />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/vault'));
+    expect(fakeNative.unlockWithBiometrics).toHaveBeenCalledTimes(1);
+    expect(isVaultUnlocked()).toBe(true);
+  });
+
+  test('not when biometric unlock is off: the password is the way in', async () => {
+    await createVault(PASSWORD, { kdfParams: FAST_KDF });
+    useVaultStore.getState().lock();
+    await render(<UnlockForm />);
+    await waitFor(() => expect(fakeNative.getUnlockState).toHaveBeenCalled());
+
+    expect(fakeNative.unlockWithBiometrics).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  test('dismissing it says nothing, does not come back, and leaves the password and the button', async () => {
+    await lockedVaultWithBiometrics();
+    fakeNative.failNext = { code: 'ERR_BIOMETRIC_USER_CANCELED' };
+    await render(<UnlockForm />);
+
+    await waitFor(() => expect(fakeNative.unlockWithBiometrics).toHaveBeenCalledTimes(1));
+    await screen.findByRole('button', { name: /unlock with fingerprint/i });
+    expect(screen.queryByText(/cancelled/i)).toBeNull();
+    expect(isVaultUnlocked()).toBe(false);
+    expect(fakeNative.unlockWithBiometrics).toHaveBeenCalledTimes(1); // no second prompt
+
+    // The button still works by hand.
+    await fireEvent.press(screen.getByRole('button', { name: /unlock with fingerprint/i }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/vault'));
+    expect(fakeNative.unlockWithBiometrics).toHaveBeenCalledTimes(2);
+  });
+
+  test('other failures are still explained', async () => {
+    await lockedVaultWithBiometrics();
+    fakeNative.failNext = { code: 'ERR_BIOMETRIC_LOCKED_OUT' };
+    await render(<UnlockForm />);
+
+    expect(await screen.findByText(/Too many failed biometric attempts/i)).toBeTruthy();
+  });
+
+  test('waits until the app is in front before asking', async () => {
+    setAppState('background');
+    let notify: (state: string) => void = () => {};
+    jest.spyOn(AppState, 'addEventListener').mockImplementation(((_: string, l: typeof notify) => {
+      notify = l;
+      return { remove: jest.fn() };
+    }) as never);
+    await lockedVaultWithBiometrics();
+    await render(<UnlockForm />);
+    await screen.findByRole('button', { name: /unlock with fingerprint/i });
+    expect(fakeNative.unlockWithBiometrics).not.toHaveBeenCalled();
+
+    await act(async () => notify('active'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/vault'));
+    expect(fakeNative.unlockWithBiometrics).toHaveBeenCalledTimes(1);
   });
 });

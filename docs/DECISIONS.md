@@ -561,3 +561,11 @@ Details and procedures: `docs/RELEASE_POLISH.md`.
 - **Not asked on the Unlock screen:** the same erase card is shown there (`requireAuth` is off). Someone who forgot the master password must still be able to erase and restore from Drive, so no password is asked there.
 - **Not changed:** what gets erased, and the typed `ERASE` step.
 - Tests: `src/features/data/__tests__/erase.test.tsx`.
+
+## Biometric unlock opens by itself (2026-10-22)
+
+- Once biometric unlock is set up and ready, the Unlock screen opens the fingerprint / face prompt by itself, so biometrics are the default way in. The master password field and the "Unlock with fingerprint" button stay on the screen.
+- **Once per visit:** the prompt is tried one time each time the Unlock screen appears. Dismissing it shows no message and does not bring it back, so the person is never trapped in a loop of prompts; the button can start it again.
+- **Only with the app in front:** if the app is not active when the screen appears, it waits until it is, because the system prompt cannot show otherwise.
+- Not changed: when biometric unlock stops being usable (restart, 7 days, 5 unlocks, changed fingerprints), the screen behaves as before and asks for the master password. Other failures (for example too many wrong fingers) are still explained.
+- Tests: `src/features/biometric/__tests__/unlockBiometricUi.test.tsx`.
