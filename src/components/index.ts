@@ -15,3 +15,4 @@ export { ToggleRow } from './ToggleRow';
 export { BrandHeader } from './BrandHeader';
 export { TabIcon } from './TabIcon';
 export { SegmentedControl } from './SegmentedControl';
+export { EyeButton } from './EyeButton';

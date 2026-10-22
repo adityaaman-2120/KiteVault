@@ -15,7 +15,7 @@ type ButtonProps = {
 
 // A round button for the dark header. The colours are light enough to read on it in both themes.
 function HeaderButton({ label, onPress, children, badge = 0, tint }: ButtonProps) {
-  const { colors, typography } = useTheme();
+  const { typography } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"

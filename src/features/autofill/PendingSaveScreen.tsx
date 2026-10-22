@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
-import { Button, Card, Chip, ScreenContainer, TextAction, TextField } from '@/components';
+import { Button, Card, Chip, EyeButton, ScreenContainer, TextField } from '@/components';
 import { describeSaveError } from '@/features/entries/entryActions';
 import { useForceScreenProtection } from '@/features/privacy/screenProtection';
 import { discardPendingSave, getPendingSaves, type PendingSave } from '@/native/keystore/autofill';
@@ -153,8 +153,8 @@ function PendingSaveCard({
           <Text style={[typography.body, { color: colors.text }]}>
             Password: {shown ? save.password : '••••••••••'}
           </Text>
-          <TextAction
-            label={shown ? 'Hide' : 'Show'}
+          <EyeButton
+            revealed={shown}
             accessibilityLabel={shown ? 'Hide password' : 'Show password'}
             onPress={() => setShown((v) => !v)}
           />

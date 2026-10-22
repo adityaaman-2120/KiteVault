@@ -3,7 +3,7 @@ import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-na
 
 import { useTheme } from '@/theme';
 
-import { TextAction } from './TextAction';
+import { EyeButton } from './EyeButton';
 import { markActivity } from '@/utils/activity';
 
 type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
@@ -12,12 +12,16 @@ type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
   error?: string;
   // Hides the text by default and adds a show/hide toggle.
   secret?: boolean;
+  // No box around the field: a small label over the text, and a line under it while focused.
+  // For fields that sit in a row of a grouped card.
+  plain?: boolean;
 };
 
-export function TextField({ label, secret = false, error, ...inputProps }: Props) {
+export function TextField({ label, secret = false, error, plain = false, ...inputProps }: Props) {
   const { colors, radius, spacing, typography } = useTheme();
   const [revealed, setRevealed] = useState(false);
   const [focused, setFocused] = useState(false);
+  const underline = error ? colors.danger : focused ? colors.primary : 'transparent';
 
   return (
     <View style={{ gap: spacing.xs }}>
@@ -28,11 +32,12 @@ export function TextField({ label, secret = false, error, ...inputProps }: Props
         style={[
           styles.row,
           {
-            backgroundColor: colors.surface,
+            backgroundColor: plain ? 'transparent' : colors.surface,
             borderColor: error ? colors.danger : focused ? colors.primary : colors.outline,
-            borderWidth: focused ? 2 : 1,
-            borderRadius: radius.lg,
-            paddingHorizontal: spacing.lg,
+            borderWidth: plain ? 0 : focused ? 2 : 1,
+            borderRadius: plain ? 0 : radius.lg,
+            paddingHorizontal: plain ? 0 : spacing.lg,
+            minHeight: plain ? 40 : 52,
           },
         ]}
       >
@@ -62,18 +67,20 @@ export function TextField({ label, secret = false, error, ...inputProps }: Props
           style={[
             typography.body,
             styles.input,
-            inputProps.multiline ? styles.multiline : null,
+            plain ? styles.inputPlain : null,
+            inputProps.multiline ? (plain ? styles.multilinePlain : styles.multiline) : null,
             { color: colors.text },
           ]}
         />
         {secret ? (
-          <TextAction
-            label={revealed ? 'Hide' : 'Show'}
+          <EyeButton
+            revealed={revealed}
             accessibilityLabel={`${revealed ? 'Hide' : 'Show'} ${label}`}
             onPress={() => setRevealed((v) => !v)}
           />
         ) : null}
       </View>
+      {plain ? <View style={{ height: 2, borderRadius: 1, backgroundColor: underline }} /> : null}
       {error ? (
         <Text accessibilityRole="alert" style={[typography.caption, { color: colors.danger }]}>
           {error}
@@ -86,5 +93,7 @@ export function TextField({ label, secret = false, error, ...inputProps }: Props
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, minHeight: 52 },
   input: { flex: 1, paddingVertical: 10 },
+  inputPlain: { paddingVertical: 4 },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
+  multilinePlain: { minHeight: 80, textAlignVertical: 'top' },
 });

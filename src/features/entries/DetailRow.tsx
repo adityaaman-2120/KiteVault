@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { TextAction } from '@/components';
+import { EyeButton, TextAction } from '@/components';
 import { copySecret } from '@/features/clipboard/clipboardService';
 import { useTheme } from '@/theme';
 
@@ -33,8 +33,8 @@ export function DetailRow({ label, value, secret = false, copyable = true, extra
       </Text>
       <View style={{ flexDirection: 'row', gap: spacing.lg }}>
         {secret ? (
-          <TextAction
-            label={shown ? 'Hide' : 'Show'}
+          <EyeButton
+            revealed={shown}
             accessibilityLabel={shown ? `Hide ${label}` : `Show ${label}`}
             onPress={() => setShown((v) => !v)}
           />

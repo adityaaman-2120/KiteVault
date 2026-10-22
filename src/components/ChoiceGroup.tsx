@@ -20,7 +20,14 @@ export function ChoiceGroup<T extends string | number>({
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ gap: spacing.sm }}>
       <Text style={[typography.label, { color: colors.textMuted }]}>{label}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: spacing.sm,
+          marginVertical: -5,
+        }}
+      >
         {options.map((option) => {
           const selected = option.value === value;
           return (
@@ -30,22 +37,31 @@ export function ChoiceGroup<T extends string | number>({
               accessibilityState={{ checked: selected }}
               accessibilityLabel={option.label}
               onPress={() => onChange(option.value)}
-              style={{
-                minHeight: touch.min,
-                justifyContent: 'center',
-                paddingVertical: spacing.sm,
-                paddingHorizontal: spacing.lg,
-                borderRadius: radius.pill,
-                borderWidth: 1,
-                borderColor: selected ? colors.primary : colors.outline,
-                backgroundColor: selected ? colors.primary : colors.surface,
-              }}
+              // The pill looks compact, but the area that reacts to a touch is 48dp tall.
+              style={{ minHeight: touch.min, justifyContent: 'center' }}
             >
-              <Text
-                style={[typography.label, { color: selected ? colors.onPrimary : colors.text }]}
+              <View
+                style={{
+                  paddingVertical: spacing.xs + 1,
+                  paddingHorizontal: spacing.md,
+                  borderRadius: radius.pill,
+                  borderWidth: 1,
+                  borderColor: selected ? colors.primary : colors.border,
+                  backgroundColor: selected ? colors.primary : colors.surface,
+                }}
               >
-                {option.label}
-              </Text>
+                <Text
+                  style={[
+                    typography.label,
+                    {
+                      color: selected ? colors.onPrimary : colors.text,
+                      fontWeight: selected ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </View>
             </Pressable>
           );
         })}

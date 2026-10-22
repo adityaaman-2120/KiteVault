@@ -9,6 +9,8 @@ type Props = {
   disabled?: boolean;
   // Shows a spinner and ignores presses.
   loading?: boolean;
+  // A smaller button for actions inside a card.
+  compact?: boolean;
 };
 
 export function Button({
@@ -17,6 +19,7 @@ export function Button({
   variant = 'primary',
   disabled = false,
   loading = false,
+  compact = false,
 }: Props) {
   const { colors, radius, spacing, typography } = useTheme();
   const filled = variant !== 'secondary';
@@ -34,8 +37,8 @@ export function Button({
         styles.base,
         {
           borderRadius: radius.pill,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.xl,
+          paddingVertical: compact ? spacing.sm : spacing.md,
+          paddingHorizontal: compact ? spacing.lg : spacing.xl,
           gap: spacing.sm,
           // Outline buttons get a soft tint instead of a bare border.
           backgroundColor: filled ? accent : colors.primarySoft,
@@ -46,7 +49,16 @@ export function Button({
       ]}
     >
       {loading ? <ActivityIndicator color={textColor} /> : null}
-      <Text style={[typography.label, styles.text, { color: textColor }]}>{title}</Text>
+      <Text
+        style={[
+          typography.label,
+          styles.text,
+          compact ? styles.compactText : null,
+          { color: textColor },
+        ]}
+      >
+        {title}
+      </Text>
     </Pressable>
   );
 }
@@ -57,7 +69,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    minHeight: 52,
+    minHeight: 48,
   },
   text: { fontSize: 16, fontWeight: '700' },
+  compactText: { fontSize: 14 },
 });

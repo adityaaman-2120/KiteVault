@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Children, useState, type ReactNode } from 'react';
 import {
   Controller,
   useFieldArray,
@@ -9,14 +9,15 @@ import {
   type Control,
   type Path,
 } from 'react-hook-form';
-import { Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import {
   Button,
-  Card,
   ChoiceGroup,
   EmptyState,
+  LetterAvatar,
   ScreenContainer,
+  TextAction,
   TextField,
   ToggleRow,
 } from '@/components';
@@ -52,10 +53,82 @@ function FormTextField({ control, name, label, ...rest }: FieldProps) {
           onChangeText={field.onChange}
           onBlur={field.onBlur}
           error={fieldState.error?.message}
+          plain
           {...rest}
         />
       )}
     />
+  );
+}
+
+const TYPE_ICONS: Record<EntryType, string> = {
+  login: '🔑',
+  note: '📝',
+  card: '💳',
+  identity: '🪪',
+};
+
+// The first letter of the title once there is one; until then the type's icon (never a "?").
+function TypeBadge({ type, title }: { type: EntryType; title: string }) {
+  const { colors, radius } = useTheme();
+  if (title.trim() !== '') return <LetterAvatar title={title} size={48} />;
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: 48,
+        height: 48,
+        borderRadius: radius.md,
+        backgroundColor: colors.primarySoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ fontSize: 24 }}>{TYPE_ICONS[type]}</Text>
+    </View>
+  );
+}
+
+// A titled group of related fields. Each child is a row, with a thin line between rows.
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  const { colors, spacing, typography } = useTheme();
+  const rows = Children.toArray(children);
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        accessibilityRole="header"
+        style={[
+          typography.caption,
+          {
+            color: colors.textMuted,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            marginLeft: spacing.xs,
+          },
+        ]}
+      >
+        {title}
+      </Text>
+      <View>
+        {rows.map((row, index) => (
+          <View
+            key={index}
+            style={{
+              paddingVertical: spacing.sm + 2,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              ...(index === rows.length - 1
+                ? { borderBottomWidth: 1, borderBottomColor: colors.border }
+                : null),
+            }}
+          >
+            {row}
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -77,6 +150,7 @@ export function EntryFormScreen({ id, initialType }: { id?: string; initialType?
   const urls = useFieldArray({ control, name: 'urls' });
   const customFields = useFieldArray({ control, name: 'customFields' });
   const type = useWatch({ control, name: 'type' });
+  const title = useWatch({ control, name: 'title' });
   const customFieldValues = useWatch({ control, name: 'customFields' });
 
   if (id && !existing) {
@@ -105,195 +179,236 @@ export function EntryFormScreen({ id, initialType }: { id?: string; initialType?
     ...(folders ?? []).map((f) => ({ value: f.id, label: f.name })),
   ];
 
+  const heading = `${id ? 'Edit' : 'New'} ${ENTRY_TYPES.find((t) => t.value === type)?.label.toLowerCase() ?? 'entry'}`;
+
   return (
-    <ScreenContainer scroll>
-      {!id ? (
-        <Controller
-          control={control}
-          name="type"
-          render={({ field }) => (
-            <ChoiceGroup<EntryType>
-              label="Type"
-              options={ENTRY_TYPES}
-              value={field.value}
-              onChange={field.onChange}
-            />
-          )}
-        />
-      ) : (
-        <Text style={[typography.label, { color: colors.textMuted }]}>
-          Editing a {ENTRY_TYPES.find((t) => t.value === type)?.label.toLowerCase()}
-        </Text>
-      )}
+    <ScreenContainer>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.md }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <TypeBadge type={type} title={title} />
+          <View style={{ flex: 1 }}>
+            <Text
+              accessibilityRole="header"
+              style={[typography.title, { color: colors.text, fontSize: 22, lineHeight: 28 }]}
+            >
+              {heading}
+            </Text>
+            <Text style={[typography.caption, { color: colors.textMuted }]}>
+              Encrypted and kept only on this phone
+            </Text>
+          </View>
+        </View>
 
-      <FormTextField control={control} name="title" label="Title" />
-
-      {type === 'login' ? (
-        <Card>
-          <FormTextField control={control} name="username" label="Username" />
-          <FormTextField control={control} name="password" label="Password" secret />
-          <Button
-            title={showGenerator ? 'Hide generator' : 'Generate a password'}
-            variant="secondary"
-            onPress={() => setShowGenerator((open) => !open)}
+        {!id ? (
+          <Controller
+            control={control}
+            name="type"
+            render={({ field }) => (
+              <ChoiceGroup<EntryType>
+                label="Type"
+                options={ENTRY_TYPES}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
           />
-          {showGenerator ? (
-            <PasswordGeneratorPanel
-              onUse={(value) => {
-                // Straight into the field: the password never goes through the address bar of a screen.
-                setValue('password', value, { shouldDirty: true, shouldValidate: true });
-                setShowGenerator(false);
-              }}
+        ) : null}
+
+        <Section title="Basics">
+          <FormTextField control={control} name="title" label="Title" />
+        </Section>
+
+        {type === 'login' ? (
+          <Section title="Login details">
+            <FormTextField control={control} name="username" label="Username" />
+            <FormTextField control={control} name="password" label="Password" secret />
+            <Button
+              compact
+              title={showGenerator ? 'Hide generator' : 'Generate a password'}
+              variant="secondary"
+              onPress={() => setShowGenerator((open) => !open)}
             />
-          ) : null}
-          {urls.fields.map((field, index) => (
-            <View key={field.id} style={{ gap: spacing.xs }}>
+            {showGenerator ? (
+              <PasswordGeneratorPanel
+                onUse={(value) => {
+                  // Straight into the field: the password never goes through the address bar of a screen.
+                  setValue('password', value, { shouldDirty: true, shouldValidate: true });
+                  setShowGenerator(false);
+                }}
+              />
+            ) : null}
+            {urls.fields.map((field, index) => (
+              <View key={field.id} style={{ gap: spacing.xs }}>
+                <FormTextField
+                  control={control}
+                  name={`urls.${index}.value`}
+                  label={index === 0 ? 'Website' : `Website ${index + 1}`}
+                  keyboardType="url"
+                  placeholder="example.com"
+                />
+                {urls.fields.length > 1 ? (
+                  <View style={{ alignSelf: 'flex-end' }}>
+                    <TextAction
+                      label="Remove website"
+                      color={colors.danger}
+                      onPress={() => urls.remove(index)}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ))}
+            <Button
+              compact
+              title="Add another website"
+              variant="secondary"
+              onPress={() => urls.append({ value: '' })}
+            />
+          </Section>
+        ) : null}
+
+        {type === 'card' ? (
+          <Section title="Card details">
+            <FormTextField control={control} name="card.holder" label="Cardholder name" />
+            <FormTextField
+              control={control}
+              name="card.number"
+              label="Card number"
+              secret
+              keyboardType="number-pad"
+            />
+            {/* Expiry and security code are short, so they share a row. */}
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <FormTextField
+                  control={control}
+                  name="card.expiry"
+                  label="Expiry (MM/YY)"
+                  placeholder="09/28"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FormTextField
+                  control={control}
+                  name="card.cvv"
+                  label="Security code"
+                  secret
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
+            <FormTextField
+              control={control}
+              name="card.pin"
+              label="PIN"
+              secret
+              keyboardType="number-pad"
+            />
+          </Section>
+        ) : null}
+
+        {type === 'identity' ? (
+          <Section title="Identity details">
+            <FormTextField control={control} name="identity.fullName" label="Full name" />
+            <FormTextField
+              control={control}
+              name="identity.email"
+              label="Email"
+              keyboardType="email-address"
+            />
+            <FormTextField
+              control={control}
+              name="identity.phone"
+              label="Phone"
+              keyboardType="phone-pad"
+            />
+            <FormTextField control={control} name="identity.address" label="Address" multiline />
+          </Section>
+        ) : null}
+
+        <Section title={type === 'note' ? 'Note' : 'Notes'}>
+          <FormTextField
+            control={control}
+            name="notes"
+            label={type === 'note' ? 'Note' : 'Notes'}
+            multiline
+          />
+        </Section>
+
+        <Section title="Custom fields">
+          {customFields.fields.map((field, index) => (
+            <View key={field.id} style={{ gap: spacing.sm }}>
               <FormTextField
                 control={control}
-                name={`urls.${index}.value`}
-                label={index === 0 ? 'Website' : `Website ${index + 1}`}
-                keyboardType="url"
-                placeholder="example.com"
+                name={`customFields.${index}.label`}
+                label="Field name"
               />
-              {urls.fields.length > 1 ? (
-                <Button
-                  title="Remove website"
-                  variant="secondary"
-                  onPress={() => urls.remove(index)}
+              <FormTextField
+                control={control}
+                name={`customFields.${index}.value`}
+                label="Value"
+                secret={customFieldValues?.[index]?.hidden === true}
+              />
+              <Controller
+                control={control}
+                name={`customFields.${index}.hidden`}
+                render={({ field: toggle }) => (
+                  <ToggleRow label="Hide value" value={toggle.value} onChange={toggle.onChange} />
+                )}
+              />
+              <View style={{ alignSelf: 'flex-end' }}>
+                <TextAction
+                  label="Remove field"
+                  color={colors.danger}
+                  onPress={() => customFields.remove(index)}
                 />
-              ) : null}
+              </View>
             </View>
           ))}
           <Button
-            title="Add another website"
+            compact
+            title="Add custom field"
             variant="secondary"
-            onPress={() => urls.append({ value: '' })}
+            onPress={() =>
+              customFields.append({ id: newId(), label: '', value: '', hidden: false })
+            }
           />
-        </Card>
-      ) : null}
+        </Section>
 
-      {type === 'card' ? (
-        <Card>
-          <FormTextField control={control} name="card.holder" label="Cardholder name" />
-          <FormTextField
+        <Section title="Organize">
+          <Controller
             control={control}
-            name="card.number"
-            label="Card number"
-            secret
-            keyboardType="number-pad"
+            name="folderId"
+            render={({ field }) => (
+              <ChoiceGroup
+                label="Folder"
+                options={folderOptions}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
           />
-          <FormTextField
+          <Controller
             control={control}
-            name="card.expiry"
-            label="Expiry (MM/YY)"
-            placeholder="09/28"
+            name="favorite"
+            render={({ field }) => (
+              <ToggleRow label="Favorite" value={field.value} onChange={field.onChange} />
+            )}
           />
-          <FormTextField
-            control={control}
-            name="card.cvv"
-            label="Security code"
-            secret
-            keyboardType="number-pad"
-          />
-          <FormTextField
-            control={control}
-            name="card.pin"
-            label="PIN"
-            secret
-            keyboardType="number-pad"
-          />
-        </Card>
-      ) : null}
+        </Section>
 
-      {type === 'identity' ? (
-        <Card>
-          <FormTextField control={control} name="identity.fullName" label="Full name" />
-          <FormTextField
-            control={control}
-            name="identity.email"
-            label="Email"
-            keyboardType="email-address"
-          />
-          <FormTextField
-            control={control}
-            name="identity.phone"
-            label="Phone"
-            keyboardType="phone-pad"
-          />
-          <FormTextField control={control} name="identity.address" label="Address" multiline />
-        </Card>
-      ) : null}
+        {saveError ? (
+          <Text accessibilityRole="alert" style={[typography.body, { color: colors.danger }]}>
+            {saveError}
+          </Text>
+        ) : null}
+      </ScrollView>
 
-      <FormTextField
-        control={control}
-        name="notes"
-        label={type === 'note' ? 'Note' : 'Notes'}
-        multiline
-      />
-
-      <Card>
-        <Text style={[typography.label, { color: colors.textMuted }]}>Custom fields</Text>
-        {customFields.fields.map((field, index) => (
-          <View key={field.id} style={{ gap: spacing.sm }}>
-            <FormTextField
-              control={control}
-              name={`customFields.${index}.label`}
-              label="Field name"
-            />
-            <FormTextField
-              control={control}
-              name={`customFields.${index}.value`}
-              label="Value"
-              secret={customFieldValues?.[index]?.hidden === true}
-            />
-            <Controller
-              control={control}
-              name={`customFields.${index}.hidden`}
-              render={({ field: toggle }) => (
-                <ToggleRow label="Hide value" value={toggle.value} onChange={toggle.onChange} />
-              )}
-            />
-            <Button
-              title="Remove field"
-              variant="secondary"
-              onPress={() => customFields.remove(index)}
-            />
-          </View>
-        ))}
-        <Button
-          title="Add custom field"
-          variant="secondary"
-          onPress={() => customFields.append({ id: newId(), label: '', value: '', hidden: false })}
-        />
-      </Card>
-
-      <Controller
-        control={control}
-        name="folderId"
-        render={({ field }) => (
-          <ChoiceGroup
-            label="Folder"
-            options={folderOptions}
-            value={field.value}
-            onChange={field.onChange}
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="favorite"
-        render={({ field }) => (
-          <ToggleRow label="Favorite" value={field.value} onChange={field.onChange} />
-        )}
-      />
-
-      {saveError ? (
-        <Text accessibilityRole="alert" style={[typography.body, { color: colors.danger }]}>
-          {saveError}
-        </Text>
-      ) : null}
-
+      {/* Stays at the bottom so Save is always one tap away. */}
       <Button
         title={formState.isSubmitting ? 'Saving…' : 'Save'}
         loading={formState.isSubmitting}
