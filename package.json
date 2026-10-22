@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "licenses": "node scripts/generate-licenses.js"
@@ -76,7 +77,64 @@
     "moduleNameMapper": {
       "^react-native-quick-crypto$": "<rootDir>/jest/quick-crypto-node.js"
     },
-    "testTimeout": 20000
+    "testTimeout": 20000,
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/__tests__/**",
+      "!src/**/__support__/**",
+      "!src/**/*.generated.ts",
+      "!src/native/keystore/android/**"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 90,
+        "branches": 85,
+        "functions": 88,
+        "lines": 92
+      },
+      "./src/crypto/": {
+        "statements": 98,
+        "branches": 90,
+        "functions": 100,
+        "lines": 98
+      },
+      "./src/vault/": {
+        "statements": 95,
+        "branches": 85,
+        "functions": 95,
+        "lines": 95
+      },
+      "./src/vault/merge.ts": {
+        "statements": 100,
+        "branches": 95,
+        "functions": 100,
+        "lines": 100
+      },
+      "./src/features/totp/": {
+        "statements": 94,
+        "branches": 85,
+        "functions": 94,
+        "lines": 95
+      },
+      "./src/features/generator/": {
+        "statements": 97,
+        "branches": 95,
+        "functions": 95,
+        "lines": 98
+      },
+      "./src/features/transfer/": {
+        "statements": 90,
+        "branches": 85,
+        "functions": 88,
+        "lines": 92
+      }
+    },
+    "coverageReporters": [
+      "text-summary",
+      "json-summary",
+      "lcov"
+    ]
   },
   "expo": {
     "autolinking": {

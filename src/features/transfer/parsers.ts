@@ -197,11 +197,13 @@ function bitwardenItem(
   }
   if (type === 'card' && item.card) {
     const c = item.card;
-    const year = str(c.expYear);
+    const month = str(c.expMonth) ? str(c.expMonth).padStart(2, '0') : '';
+    const year = str(c.expYear).slice(-2);
     entry.card = {
       holder: str(c.cardholderName),
       number: str(c.number),
-      expiry: c.expMonth || year ? `${str(c.expMonth).padStart(2, '0')}/${year.slice(-2)}` : '',
+      // A missing month or year stays empty instead of becoming "00".
+      expiry: month || year ? `${month}/${year}` : '',
       cvv: str(c.code),
       pin: '',
     };
