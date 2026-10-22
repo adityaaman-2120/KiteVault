@@ -27,6 +27,8 @@ describe.each(themes)('%s theme', (_name, c) => {
     ['secondary text on the page', 'textMuted', 'background'],
     ['secondary text on cards', 'textMuted', 'surface'],
     ['secondary text on muted areas', 'textMuted', 'surfaceMuted'],
+    ['text in a text field', 'text', 'field'],
+    ['hint text in a text field', 'textMuted', 'field'],
     ['button text on the main colour', 'onPrimary', 'primary'],
     ['links and chosen options on the page', 'primary', 'background'],
     ['links and chosen options on cards', 'primary', 'surface'],

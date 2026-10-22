@@ -12,12 +12,11 @@ type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
   error?: string;
   // Hides the text by default and adds a show/hide toggle.
   secret?: boolean;
-  // The form look: a darker rectangle that never changes, and a line under it that lights up
-  // while you type.
-  plain?: boolean;
 };
 
-export function TextField({ label, secret = false, error, plain = false, ...inputProps }: Props) {
+// Every place in the app where you type uses this one look: a rectangle a little darker than
+// the page that never changes, no outline, and a line under it that lights up while you type.
+export function TextField({ label, secret = false, error, ...inputProps }: Props) {
   const { colors, radius, spacing, typography } = useTheme();
   const [revealed, setRevealed] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -32,23 +31,11 @@ export function TextField({ label, secret = false, error, plain = false, ...inpu
         style={[
           styles.row,
           {
-            backgroundColor: plain ? colors.field : colors.surface,
-            borderColor: plain
-              ? underline
-              : error
-                ? colors.danger
-                : focused
-                  ? colors.primary
-                  : colors.outline,
-            // The form look has no outline: only the line under the field, which lights up on focus.
-            borderWidth: plain ? 0 : focused ? 2 : 1,
-            borderBottomWidth: plain ? 2 : focused ? 2 : 1,
-            borderTopLeftRadius: plain ? radius.sm : radius.lg,
-            borderTopRightRadius: plain ? radius.sm : radius.lg,
-            borderBottomLeftRadius: plain ? 0 : radius.lg,
-            borderBottomRightRadius: plain ? 0 : radius.lg,
-            paddingHorizontal: plain ? spacing.md : spacing.lg,
-            minHeight: plain ? 48 : 52,
+            backgroundColor: colors.field,
+            borderBottomColor: underline,
+            borderTopLeftRadius: radius.sm,
+            borderTopRightRadius: radius.sm,
+            paddingHorizontal: spacing.md,
           },
         ]}
       >
@@ -78,8 +65,7 @@ export function TextField({ label, secret = false, error, plain = false, ...inpu
           style={[
             typography.body,
             styles.input,
-            plain ? styles.inputPlain : null,
-            inputProps.multiline ? (plain ? styles.multilinePlain : styles.multiline) : null,
+            inputProps.multiline ? styles.multiline : null,
             { color: colors.text },
           ]}
         />
@@ -101,9 +87,8 @@ export function TextField({ label, secret = false, error, plain = false, ...inpu
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, minHeight: 52 },
-  input: { flex: 1, paddingVertical: 10 },
-  inputPlain: { paddingVertical: 8 },
-  multiline: { minHeight: 110, textAlignVertical: 'top' },
-  multilinePlain: { minHeight: 88, textAlignVertical: 'top' },
+  // No outline: only the line under the field has a width.
+  row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, minHeight: 48 },
+  input: { flex: 1, paddingVertical: 8 },
+  multiline: { minHeight: 88, textAlignVertical: 'top' },
 });

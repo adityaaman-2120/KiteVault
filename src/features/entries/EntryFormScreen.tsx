@@ -53,7 +53,6 @@ function FormTextField({ control, name, label, ...rest }: FieldProps) {
           onChangeText={field.onChange}
           onBlur={field.onBlur}
           error={fieldState.error?.message}
-          plain
           {...rest}
         />
       )}
