@@ -96,3 +96,38 @@ describe('atomic save', () => {
     expect(vaultFile('vault.kvlt.tmp').exists).toBe(false);
   });
 });
+
+describe('a vault file that is damaged', () => {
+  async function damageMainFile(keep: 'nothing' | 'old copy') {
+    await createVault(PASSWORD, { kdfParams: FAST_KDF });
+    const good = await vaultFile().bytes();
+    lockVault();
+    const main = vaultFile();
+    main.delete();
+    main.create();
+    await main.write(new Uint8Array(good.length)); // right size, all zeros
+    if (keep === 'old copy') {
+      const bak = vaultFile('vault.kvlt.bak');
+      bak.create();
+      await bak.write(good);
+    }
+  }
+
+  test('with no other copy: the vault still counts as existing and reports "damaged"', async () => {
+    await damageMainFile('nothing');
+    expect(await vaultExists()).toBe(true);
+    await expect(unlockVault(PASSWORD)).rejects.toMatchObject({ code: 'CORRUPTED' });
+  });
+
+  test('with no other copy: a new vault cannot be created on top of it by accident', async () => {
+    await damageMainFile('nothing');
+    await expect(createVault('another password', { kdfParams: FAST_KDF })).rejects.toMatchObject({
+      code: 'VAULT_EXISTS',
+    });
+  });
+
+  test('with an intact old copy left by an interrupted save: it is used', async () => {
+    await damageMainFile('old copy');
+    await expect(unlockVault(PASSWORD)).resolves.toMatchObject({ version: 1 });
+  });
+});

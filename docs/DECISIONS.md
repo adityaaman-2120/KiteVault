@@ -538,3 +538,17 @@ Regression tests: `src/__tests__/securityRegression.test.ts` and `src/native/key
 - **Not covered by automated tests:** the screens `GeneratorScreen`, `DataTransferCard`, `SecurityCheckCard` (thin wrappers), parts of the backup conflict/history screens and the import/export screens (error paths), and everything that needs a phone; see `docs/MANUAL_TEST_PLAN.md`.
 - **CI** (`.github/workflows/ci.yml`): on every push and pull request, read-only permissions, newer pushes cancel older runs. Job `checks`: `npm ci`, format check, type-check, ESLint with no warnings allowed, all Jest tests with coverage and the limits above (two workers, because the Argon2 tests are heavy), a per-area coverage report, the coverage as a downloadable artifact. Job `kotlin-unit-tests`: generates the Android project and runs the Kotlin unit tests. **The workflow could not be run here**: its YAML was only parsed, and every command in `checks` was run locally; the Kotlin job depends on the runner's Android toolchain and may need adjustment the first time it runs on GitHub.
 - ESLint now knows Node's globals for the plain Node scripts and config plugins, so `eslint .` passes for the whole repository. The async wait for UI tests is 15 s (it only matters when a test fails) because coverage instrumentation made some screens miss the old 5 s limit.
+
+## Release polish (2026-10-22)
+
+Details and procedures: `docs/RELEASE_POLISH.md`.
+
+- **Logo:** the Kitelux kite with a keyhole where Kitelux has its sparkle (same shape and colours, one clear change), drawn as plain geometry by `scripts/build-brand-assets.js`. Adaptive icon: transparent foreground on a plain `#0E1630` colour, plus a monochrome layer for themed icons. Splash: the logo with its tail on `#0E1630`.
+- **Palette:** taken from Kitelux (night blue, amber, orange). Every text pair is held to 4.5 : 1 and control edges to 3 : 1 by `src/theme/__tests__/contrast.test.ts`, light and dark.
+- **Touch size:** 48 dp minimum, one shared `TextAction` for text buttons.
+- **KDF:** default stays Argon2id 64 MiB, 3 passes, 1 lane. Not changed, because no phone was available to measure; `docs/RELEASE_POLISH.md` gives the measuring steps and a table for tuning. The floor in `kdf.ts` stays.
+- **Strength checker** is built on first use, not at start-up.
+- **Damaged vault:** never treated as "no vault". The user may erase it (typed confirmation) and restore from Drive; the app does not try to repair it.
+- **Backup pending mark** is cleared after a successful upload (and only if no save happened meanwhile), not before it starts.
+- **Small JSON files** (settings, attempt counter) are written with a temporary file and rename, like the vault.
+- **Privacy text** now describes both optional online features. "No analytics" still needs the network capture before it is claimed in the store listing.

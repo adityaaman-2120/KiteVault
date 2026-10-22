@@ -70,7 +70,7 @@ describe('conflict screen', () => {
     await makeConflict();
     await render(<BackupConflictScreen />);
     await fireEvent.press(button('Merge'));
-    await fireEvent.changeText(screen.getByLabelText(/Master password/), 'wrong');
+    await fireEvent.changeText(screen.getByLabelText(/^Master password/), 'wrong');
     await fireEvent.press(button('Merge'));
     expect(await screen.findByText(/does not open this backup/)).toBeTruthy();
     expect(useBackupState.getState().conflict).not.toBeNull();
@@ -83,7 +83,7 @@ describe('conflict screen', () => {
       .save(snapshot({ ...useVaultStore.getState().data!, entries: [makeEntry({ id: 'zz' })] }));
     await render(<BackupConflictScreen />);
     await fireEvent.press(button('Merge'));
-    await fireEvent.changeText(screen.getByLabelText(/Master password/), MASTER_PASSWORD);
+    await fireEvent.changeText(screen.getByLabelText(/^Master password/), MASTER_PASSWORD);
     await fireEvent.press(button('Merge'));
     expect(await screen.findByText('Conflict resolved')).toBeTruthy();
     expect(screen.getByText(/Nothing was deleted/)).toBeTruthy();
@@ -100,7 +100,7 @@ describe('history screen', () => {
   test('restoring needs the password; a wrong one is reported', async () => {
     await render(<BackupHistoryScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'Restore…' }));
-    await fireEvent.changeText(screen.getByLabelText(/Master password/), 'wrong');
+    await fireEvent.changeText(screen.getByLabelText(/^Master password/), 'wrong');
     await fireEvent.press(button('Restore this version'));
     expect(await screen.findByText(/does not open this backup/)).toBeTruthy();
   });
@@ -109,7 +109,7 @@ describe('history screen', () => {
     useSettingsStore.setState({ backupPending: false });
     await render(<BackupHistoryScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'Restore…' }));
-    await fireEvent.changeText(screen.getByLabelText(/Master password/), MASTER_PASSWORD);
+    await fireEvent.changeText(screen.getByLabelText(/^Master password/), MASTER_PASSWORD);
     await fireEvent.press(button('Restore this version'));
     await waitFor(() => expect(screen.getByText(/Restored\./)).toBeTruthy());
   });

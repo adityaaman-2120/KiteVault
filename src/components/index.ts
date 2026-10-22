@@ -8,6 +8,8 @@ export { LetterAvatar } from './LetterAvatar';
 export { ListItem } from './ListItem';
 export { ScreenContainer } from './ScreenContainer';
 export { SectionHeader } from './SectionHeader';
+export { TextAction } from './TextAction';
 export { StrengthMeter, type StrengthLevel } from './StrengthMeter';
 export { TextField } from './TextField';
 export { ToggleRow } from './ToggleRow';
+export { BrandHeader } from './BrandHeader';

@@ -180,10 +180,12 @@ export function backupNow(options: BackupOptions = {}): Promise<RemoteBackup> {
     requireAvailable();
     if (!settings().backupEnabled) throw new BackupError('not-signed-in');
     ui({ busy: 'backing-up', error: null });
-    // Anything saved from here on marks the file as changed again.
-    await patch({ backupPending: false });
     try {
       const meta = await versionMeta();
+      // The "changed since the last backup" mark stays on while the upload runs, so if the app is
+      // killed half way the change is still tried again. It is cleared only after a successful
+      // upload, and only if no save happened in the meantime (every save raises the revision).
+      const revisionAtStart = settings().backupLocalRevision;
       const bytes = await loadVaultFile(isWellFormedVaultFile);
       if (!bytes) throw new BackupError('no-vault');
       if (!isWellFormedVaultFile(bytes)) throw new BackupError('invalid-backup'); // never upload junk
@@ -220,6 +222,7 @@ export function backupNow(options: BackupOptions = {}): Promise<RemoteBackup> {
         backupRemoteId: uploaded.id,
         backupRemoteModified: uploaded.modifiedTime,
         backupRemoteRevision: meta.revision,
+        backupPending: settings().backupLocalRevision !== revisionAtStart,
       });
       ui({ error: null, conflict: null });
       // Keep only the newest versions. Failing to tidy up must not fail the backup.

@@ -67,7 +67,7 @@ export function ChangePasswordForm() {
       setConfirm('');
       Alert.alert(
         'Master password changed',
-        'Use your new master password the next time you unlock.',
+        'Use your new master password the next time you unlock. Google Drive backups made before this change still need your old master password to be restored.',
       );
       router.back();
     } catch (e) {
@@ -79,8 +79,9 @@ export function ChangePasswordForm() {
   return (
     <ScreenContainer scroll>
       <Text style={[typography.body, { color: colors.textMuted }]}>
-        Your passwords are not re-encrypted: only the key that protects them is wrapped again with
-        the new password. If you forget the new password, your data cannot be recovered.
+        Your passwords stay the same; only the password that opens them changes. If you forget the
+        new password, your data cannot be recovered. Backups already in Google Drive still open with
+        the master password they had when they were made.
       </Text>
 
       <TextField

@@ -100,7 +100,7 @@ describe('when saving fails', () => {
 
   test('a disk error is thrown, the data stays as it was, and the file is still good', async () => {
     jest.spyOn(File.prototype, 'create').mockImplementation(() => {
-      throw new Error('disk full');
+      throw new Error('write failed');
     });
 
     await expect(saveEntryFromForm(form('Lost'))).rejects.toThrow();
@@ -113,9 +113,23 @@ describe('when saving fails', () => {
     expect((await reloadFromDisk()).entries.map((e) => e.title)).toEqual(['Keep me']);
   });
 
+  test('a full phone says so in plain words, and nothing is lost', async () => {
+    jest.spyOn(File.prototype, 'write').mockImplementation(() => {
+      throw new Error('ENOSPC: No space left on device');
+    });
+    const error = await saveEntryFromForm(form('Lost')).catch((e) => e);
+    const message = describeSaveError(error);
+    expect(message).toMatch(/out of storage space/i);
+    expect(message).toMatch(/existing passwords are safe/i);
+    expect(message).not.toMatch(/ENOSPC/);
+    expect(storeEntries().map((e) => e.title)).toEqual(['Keep me']);
+    jest.restoreAllMocks();
+    expect((await reloadFromDisk()).entries.map((e) => e.title)).toEqual(['Keep me']);
+  });
+
   test('after a failure the next change works', async () => {
     const spy = jest.spyOn(File.prototype, 'create').mockImplementationOnce(() => {
-      throw new Error('disk full');
+      throw new Error('write failed');
     });
     await expect(saveEntryFromForm(form('Lost'))).rejects.toThrow();
     spy.mockRestore();

@@ -75,6 +75,26 @@ test('a damaged vault is reported as such, not as a wrong password', async () =>
   expect(await screen.findByText(/damaged and cannot be opened/i)).toBeTruthy();
 });
 
+test('a damaged vault offers to erase the damaged file, and says what to do next', async () => {
+  unlock.mockRejectedValue(new VaultError('CORRUPTED', 'x'));
+  await render(<UnlockForm />);
+  expect(screen.queryByText(/Erase damaged vault/)).toBeNull();
+  await type('guess');
+  await fireEvent.press(unlockButton());
+  expect(await screen.findByRole('button', { name: 'Erase damaged vault' })).toBeTruthy();
+  expect(screen.getByText(/restore your latest backup with your master password/)).toBeTruthy();
+  expect(screen.getByText(/If you have no backup/)).toBeTruthy();
+});
+
+test('a wrong password does not show the erase option', async () => {
+  unlock.mockRejectedValue(new VaultError('WRONG_PASSWORD', 'nope'));
+  await render(<UnlockForm />);
+  await type('guess');
+  await fireEvent.press(unlockButton());
+  await screen.findByText('Wrong password. Please try again.');
+  expect(screen.queryByRole('button', { name: 'Erase damaged vault' })).toBeNull();
+});
+
 test('an unexpected error shows a generic message without details', async () => {
   const spies = (['log', 'warn', 'error'] as const).map((m) =>
     jest.spyOn(console, m).mockImplementation(() => {}),

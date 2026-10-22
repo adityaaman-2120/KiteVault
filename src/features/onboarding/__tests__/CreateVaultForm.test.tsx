@@ -33,7 +33,9 @@ describe('CreateVaultForm validation', () => {
     expect(submitButton()).toBeDisabled();
     expect(screen.getByRole('checkbox')).not.toBeChecked();
     expect(
-      screen.getByText('If I forget my master password, my data cannot be recovered.'),
+      screen.getByText(
+        'I understand that if I forget my master password, nobody can recover my data, not even Kitelux.',
+      ),
     ).toBeTruthy();
   });
 
@@ -79,7 +81,7 @@ describe('CreateVaultForm validation', () => {
   test('the password is hidden until Show is pressed', async () => {
     await render(<CreateVaultForm />);
     expect(field('Master password').props.secureTextEntry).toBe(true);
-    await fireEvent.press(screen.getAllByLabelText('Show')[0]!);
+    await fireEvent.press(screen.getAllByLabelText(/^Show/)[0]!);
     expect(field('Master password').props.secureTextEntry).toBe(false);
   });
 });

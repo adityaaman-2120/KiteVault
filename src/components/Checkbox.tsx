@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { useTheme } from '@/theme';
+import { touch, useTheme } from '@/theme';
 
 type Props = {
   label: string;
@@ -18,7 +18,13 @@ export function Checkbox({ label, checked, onChange, disabled = false }: Props) 
       accessibilityLabel={label}
       disabled={disabled}
       onPress={() => onChange(!checked)}
-      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}
+      style={{
+        minHeight: touch.min,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: spacing.md,
+        paddingVertical: spacing.xs,
+      }}
     >
       <View
         style={{

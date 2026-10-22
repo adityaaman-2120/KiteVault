@@ -9,7 +9,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
-import { Button, ScreenContainer } from '@/components';
+import { BrandHeader, Button, ScreenContainer } from '@/components';
 import { isCloudBackupAvailable } from '@/features/backup/config';
 import { useTheme } from '@/theme';
 
@@ -20,11 +20,11 @@ export const SLIDES = [
   },
   {
     title: 'Only you hold the key',
-    body: 'Your master password cannot be recovered by anyone, including us. If you forget it, your data is gone.',
+    body: 'Your master password cannot be recovered by anyone, including Kitelux. If you forget it, your passwords are gone for good, unless you set up a recovery key.',
   },
   {
     title: 'Optional encrypted backup',
-    body: 'Back up to your own Google Drive if you like. The backup is encrypted before it leaves your phone.',
+    body: 'Back up to your own Google Drive if you like. The backup is encrypted on your phone before it leaves, and only your master password can open it.',
   },
 ] as const;
 
@@ -53,7 +53,7 @@ export function WelcomeSlides() {
 
   return (
     <ScreenContainer>
-      <Text style={[typography.label, { color: colors.primary }]}>KiteVault</Text>
+      <BrandHeader size="large" />
       <FlatList
         ref={listRef}
         data={SLIDES}

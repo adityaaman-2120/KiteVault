@@ -1,5 +1,6 @@
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 
+import { TextAction } from '@/components';
 import { useTheme } from '@/theme';
 import type { Entry } from '@/vault';
 
@@ -40,14 +41,11 @@ export function AuthenticatorList({
               {item.title}
               {item.username ? ` · ${item.username}` : ''}
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <TextAction
+              label="Open"
               accessibilityLabel={`Open ${item.title}`}
               onPress={() => onOpen(item.id)}
-              hitSlop={8}
-            >
-              <Text style={[typography.label, { color: colors.primary }]}>Open</Text>
-            </Pressable>
+            />
           </View>
           <TotpCode secret={item.totpSecret ?? ''} params={item.totpParams} now={now} compact />
         </View>

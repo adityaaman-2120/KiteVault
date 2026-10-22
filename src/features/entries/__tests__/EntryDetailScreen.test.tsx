@@ -148,7 +148,7 @@ describe('delete', () => {
     await render(<EntryDetailScreen id="e1" />);
     await fireEvent.press(screen.getByRole('button', { name: 'Move to Trash' }));
     jest.spyOn(File.prototype, 'create').mockImplementation(() => {
-      throw new Error('disk full');
+      throw new Error('write failed');
     });
     pressDestructive();
     await waitFor(() =>

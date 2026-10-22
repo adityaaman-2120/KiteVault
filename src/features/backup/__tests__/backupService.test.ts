@@ -200,11 +200,27 @@ describe('pending changes', () => {
   test('a change made while the upload is running is not lost', async () => {
     await signedIn();
     testDrive.onRequest = (request) => {
+      // What a save does while backup is on: mark pending and raise the revision.
       if (request.method === 'POST')
-        void useSettingsStore.getState().update({ backupPending: true });
+        void useSettingsStore.getState().update({
+          backupPending: true,
+          backupLocalRevision: backupSettings().backupLocalRevision + 1,
+        });
     };
     await backupNow();
     expect(backupSettings().backupPending).toBe(true);
+  });
+
+  test('stay marked while the upload is running, so an app killed half way tries again', async () => {
+    await signedIn();
+    await useSettingsStore.getState().update({ backupPending: true });
+    let markedDuringUpload: boolean | null = null;
+    testDrive.onRequest = (request) => {
+      if (request.method === 'POST') markedDuringUpload = backupSettings().backupPending;
+    };
+    await backupNow();
+    expect(markedDuringUpload).toBe(true);
+    expect(backupSettings().backupPending).toBe(false);
   });
 });
 

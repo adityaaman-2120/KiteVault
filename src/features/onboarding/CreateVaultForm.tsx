@@ -9,7 +9,8 @@ import { useVaultStore, VaultError } from '@/vault';
 import { evaluatePassword } from './passwordStrength';
 import { MIN_PASSWORD_LENGTH, passwordLength, validateCreateVault } from './validation';
 
-const WARNING = 'If I forget my master password, my data cannot be recovered.';
+const WARNING =
+  'I understand that if I forget my master password, nobody can recover my data, not even Kitelux.';
 
 // Never includes the underlying error: it could mention internals, and logs must stay secret-free.
 function describeError(error: unknown): string {
@@ -53,7 +54,8 @@ export function CreateVaultForm() {
   return (
     <ScreenContainer scroll>
       <Text style={[typography.body, { color: colors.textMuted }]}>
-        Choose a master password. It protects everything in your vault.
+        Choose a master password. It protects everything in your vault. Pick something long that you
+        will remember: there is no way to reset it.
       </Text>
 
       <TextField

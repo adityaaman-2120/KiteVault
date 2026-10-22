@@ -14,16 +14,15 @@ import {
 } from './entryActions';
 import { AuthenticatorList } from '@/features/totp/AuthenticatorList';
 
-import { EntryRow, ROW_GAP, ROW_HEIGHT } from './EntryRow';
+import { EntryRow, ROW_GAP, rowHeight } from './EntryRow';
 import { ENTRY_TYPES, isTrashed } from './model';
 import { filterEntries, sortEntries } from './search';
 
 const keyExtractor = (entry: Entry) => entry.id;
-const getItemLayout = (_: unknown, index: number) => ({
-  length: ROW_HEIGHT + ROW_GAP,
-  offset: (ROW_HEIGHT + ROW_GAP) * index,
-  index,
-});
+const getItemLayout = (_: unknown, index: number) => {
+  const length = rowHeight() + ROW_GAP;
+  return { length, offset: length * index, index };
+};
 const Separator = () => <View style={{ height: ROW_GAP }} />;
 const NO_ENTRIES: Entry[] = [];
 

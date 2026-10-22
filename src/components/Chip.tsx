@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Pressable, Text } from 'react-native';
 
-import { useTheme } from '@/theme';
+import { touch, useTheme } from '@/theme';
 
 // A small on/off filter button.
 export const Chip = memo(function Chip({
@@ -21,11 +21,13 @@ export const Chip = memo(function Chip({
       accessibilityLabel={label}
       onPress={onPress}
       style={{
+        minHeight: touch.min,
+        justifyContent: 'center',
         paddingVertical: spacing.xs + 2,
         paddingHorizontal: spacing.md,
         borderRadius: radius.pill,
         borderWidth: 1,
-        borderColor: selected ? colors.primary : colors.border,
+        borderColor: selected ? colors.primary : colors.outline,
         backgroundColor: selected ? colors.primary : colors.surface,
       }}
     >

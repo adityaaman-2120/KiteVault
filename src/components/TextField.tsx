@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { useTheme } from '@/theme';
+
+import { TextAction } from './TextAction';
 import { markActivity } from '@/utils/activity';
 
 type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
@@ -24,7 +26,7 @@ export function TextField({ label, secret = false, error, ...inputProps }: Props
           styles.row,
           {
             backgroundColor: colors.surface,
-            borderColor: error ? colors.danger : colors.border,
+            borderColor: error ? colors.danger : colors.outline,
             borderRadius: radius.md,
             paddingHorizontal: spacing.md,
           },
@@ -53,16 +55,11 @@ export function TextField({ label, secret = false, error, ...inputProps }: Props
           ]}
         />
         {secret ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={revealed ? 'Hide' : 'Show'}
+          <TextAction
+            label={revealed ? 'Hide' : 'Show'}
+            accessibilityLabel={`${revealed ? 'Hide' : 'Show'} ${label}`}
             onPress={() => setRevealed((v) => !v)}
-            hitSlop={8}
-          >
-            <Text style={[typography.label, { color: colors.primary }]}>
-              {revealed ? 'Hide' : 'Show'}
-            </Text>
-          </Pressable>
+          />
         ) : null}
       </View>
       {error ? (

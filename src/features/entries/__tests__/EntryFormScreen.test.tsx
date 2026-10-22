@@ -267,12 +267,12 @@ describe('when saving fails', () => {
     await type('Password', 'do-not-lose');
 
     const spy = jest.spyOn(File.prototype, 'create').mockImplementation(() => {
-      throw new Error('disk full');
+      throw new Error('write failed');
     });
     await save();
 
     expect(await screen.findByText(/could not be saved, so nothing was changed/i)).toBeTruthy();
-    expect(screen.queryByText(/disk full/)).toBeNull();
+    expect(screen.queryByText(/write failed/)).toBeNull();
     expect(field('Title').props.value).toBe('Important');
     expect(field('Password').props.value).toBe('do-not-lose');
     expect(storeEntries()).toHaveLength(0);

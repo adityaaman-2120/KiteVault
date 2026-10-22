@@ -1,3 +1,4 @@
+import { isOutOfSpace } from '@/storage';
 import { useVaultStore, VaultError, type Entry, type VaultData } from '@/vault';
 
 import { entryToForm, formToEntry, type EntryFormValues } from './entrySchema';
@@ -39,6 +40,9 @@ export function describeSaveError(error: unknown): string {
     return 'The vault is locked. Unlock it and try again.';
   }
   if (error instanceof EntryActionError) return error.message;
+  if (isOutOfSpace(error)) {
+    return 'Your phone is out of storage space, so nothing was saved. Free up some space and try again. Your existing passwords are safe.';
+  }
   return 'Your change could not be saved, so nothing was changed. Please try again.';
 }
 

@@ -7,9 +7,19 @@ import { useTheme } from '@/theme';
 import { eraseEverything, ERASE_WORD, isEraseConfirmed } from './eraseVault';
 
 export const ERASE_WARNING =
-  'This will permanently erase all passwords on this device. This cannot be undone.';
+  'This will permanently erase all passwords on this device. This cannot be undone. A backup in your Google Drive, if you have one, is not deleted.';
 
-export function EraseVaultCard() {
+type Props = {
+  title?: string;
+  description?: string;
+  warning?: string;
+};
+
+export function EraseVaultCard({
+  title = 'Erase vault',
+  description = 'Deletes every password, note and setting from this phone.',
+  warning = ERASE_WARNING,
+}: Props) {
   const { colors, radius, spacing, typography } = useTheme();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
@@ -39,11 +49,9 @@ export function EraseVaultCard() {
   return (
     <>
       <Card>
-        <Text style={[typography.heading, { color: colors.danger }]}>Erase vault</Text>
-        <Text style={[typography.body, { color: colors.textMuted }]}>
-          Deletes every password, note and setting from this phone.
-        </Text>
-        <Button title="Erase vault" variant="danger" onPress={() => setOpen(true)} />
+        <Text style={[typography.heading, { color: colors.danger }]}>{title}</Text>
+        <Text style={[typography.body, { color: colors.textMuted }]}>{description}</Text>
+        <Button title={title} variant="danger" onPress={() => setOpen(true)} />
       </Card>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
@@ -67,7 +75,7 @@ export function EraseVaultCard() {
             }}
           >
             <Text style={[typography.heading, { color: colors.danger }]}>Erase vault?</Text>
-            <Text style={[typography.body, { color: colors.text }]}>{ERASE_WARNING}</Text>
+            <Text style={[typography.body, { color: colors.text }]}>{warning}</Text>
             <TextField
               label={`Type ${ERASE_WORD} to confirm`}
               value={typed}

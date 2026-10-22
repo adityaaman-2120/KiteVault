@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { Button, ScreenContainer, TextField } from '@/components';
+import { BrandHeader, Button, ScreenContainer, TextAction, TextField } from '@/components';
 import { unlockWithBiometric } from '@/features/biometric/biometricService';
 import { describeBiometricError, describeReauth } from '@/features/biometric/messages';
 import { offerBiometricUnlock } from '@/features/biometric/offerBiometricUnlock';
+import { EraseVaultCard } from '@/features/data/EraseVaultCard';
 import { useBiometricState } from '@/features/biometric/useBiometricState';
 import { BiometricError, disableBiometricUnlock } from '@/native/keystore';
 import { useTheme } from '@/theme';
@@ -18,6 +19,11 @@ export function formatWait(ms: number): string {
   const seconds = Math.ceil(ms / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
+
+// Shown when the vault file cannot be read at all. Erasing it leads to the welcome screen, which
+// offers "Restore from Google Drive".
+export const DAMAGED_VAULT_HELP =
+  'KiteVault cannot read the vault file on this phone. If you turned on Google Drive backup, erase the damaged file and then restore your latest backup with your master password. If you have no backup, the passwords in this file cannot be recovered.';
 
 // Messages never include the password or the underlying error.
 function describeError(error: unknown): string {
@@ -36,6 +42,7 @@ export function UnlockForm() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [damaged, setDamaged] = useState(false);
   // Time left on the current delay, refreshed once a second while it runs.
   const [remainingMs, setRemainingMs] = useState(0);
   const lockedUntil = useRef(0);
@@ -96,6 +103,7 @@ export function UnlockForm() {
         startWait(e.remainingMs);
       } else {
         setError(describeError(e));
+        setDamaged(e instanceof VaultError && e.code === 'CORRUPTED');
         // A wrong guess may have started a delay; read it back.
         const remaining = remainingLockoutMs(await loadAttemptState(), Date.now());
         if (remaining > 0) startWait(remaining);
@@ -121,7 +129,8 @@ export function UnlockForm() {
 
   return (
     <ScreenContainer scroll>
-      <View style={{ gap: spacing.sm, marginTop: spacing.xxl }}>
+      <View style={{ gap: spacing.sm, marginTop: spacing.xl }}>
+        <BrandHeader />
         <Text style={[typography.title, { color: colors.text }]}>Unlock</Text>
         <Text style={[typography.body, { color: colors.textMuted }]}>
           Enter your master password to open your vault.
@@ -148,6 +157,14 @@ export function UnlockForm() {
         </Text>
       ) : null}
 
+      {damaged ? (
+        <EraseVaultCard
+          title="Erase damaged vault"
+          description={DAMAGED_VAULT_HELP}
+          warning="This deletes the damaged vault file from this phone. Your passwords cannot be recovered from it afterwards. This cannot be undone."
+        />
+      ) : null}
+
       <Button
         title={busy ? 'Unlocking…' : 'Unlock'}
         onPress={submit}
@@ -170,16 +187,11 @@ export function UnlockForm() {
         </Text>
       ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Forgot master password?"
+      <TextAction
+        label="Forgot master password?"
         onPress={() => router.push('/recover')}
         disabled={busy}
-        hitSlop={8}
-        style={{ alignItems: 'center', padding: spacing.sm }}
-      >
-        <Text style={[typography.label, { color: colors.primary }]}>Forgot master password?</Text>
-      </Pressable>
+      />
     </ScreenContainer>
   );
 }

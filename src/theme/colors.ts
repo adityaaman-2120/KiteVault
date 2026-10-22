@@ -2,40 +2,52 @@ export type ColorTokens = {
   background: string;
   surface: string;
   surfaceMuted: string;
+  // Thin lines that only separate things (card edges, dividers). Not for controls.
   border: string;
+  // The edge of something you can touch or type into (text boxes, switches, check boxes).
+  // Strong enough to be seen by people with low vision (at least 3:1 against what is behind it).
+  outline: string;
   text: string;
   textMuted: string;
   primary: string;
   onPrimary: string;
+  // The brand orange, as readable text ("Vault" in the name, small highlights).
+  accent: string;
   danger: string;
   warning: string;
   success: string;
 };
 
+// The palette comes from the Kitelux logo: night blue #0E1630, amber #FFB547 and the kite's
+// oranges. Every text pair is checked for contrast in src/theme/__tests__/contrast.test.ts.
 export const lightColors: ColorTokens = {
-  background: '#F5F7F9',
+  background: '#F4F5FA',
   surface: '#FFFFFF',
-  surfaceMuted: '#EAEFF3',
-  border: '#D9E0E6',
-  text: '#16202A',
-  textMuted: '#5C6B7A',
-  primary: '#2F6F8F',
+  surfaceMuted: '#E8EAF3',
+  border: '#DDE1EE',
+  outline: '#6B7391',
+  text: '#0E1630',
+  textMuted: '#4A5272',
+  primary: '#1B2A5C',
   onPrimary: '#FFFFFF',
-  danger: '#B3413A',
-  warning: '#A86B12',
-  success: '#2E7D5B',
+  accent: '#B4530A',
+  danger: '#B3261E',
+  warning: '#8A5300',
+  success: '#1E7A52',
 };
 
 export const darkColors: ColorTokens = {
-  background: '#0F1519',
-  surface: '#182026',
-  surfaceMuted: '#212B33',
-  border: '#2C3842',
-  text: '#E8EEF2',
-  textMuted: '#93A3B1',
-  primary: '#6DB3D1',
-  onPrimary: '#0B1418',
-  danger: '#E5736B',
-  warning: '#E0A44A',
-  success: '#5FBF93',
+  background: '#0E1630',
+  surface: '#172042',
+  surfaceMuted: '#212C5A',
+  border: '#2A3566',
+  outline: '#8B94B8',
+  text: '#F4F5FA',
+  textMuted: '#B7BFDD',
+  primary: '#FFB547',
+  onPrimary: '#0E1630',
+  accent: '#FFB547',
+  danger: '#FF8A80',
+  warning: '#FFC861',
+  success: '#6FD3A5',
 };

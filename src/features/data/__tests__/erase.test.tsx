@@ -146,11 +146,7 @@ describe('EraseVaultCard', () => {
     expect(screen.queryByText(ERASE_WARNING)).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Erase vault' }));
 
-    expect(
-      screen.getByText(
-        'This will permanently erase all passwords on this device. This cannot be undone.',
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText(ERASE_WARNING)).toBeTruthy();
     expect(vaultFile().exists).toBe(true);
     expect(isVaultUnlocked()).toBe(true);
   });

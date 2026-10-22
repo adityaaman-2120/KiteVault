@@ -1,5 +1,6 @@
 export {
   deleteVaultFile,
+  isOutOfSpace,
   loadVaultFile,
   onVaultFileSaved,
   recoverVaultFile,

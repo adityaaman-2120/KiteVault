@@ -188,7 +188,7 @@ describe('Authenticator filter on the vault screen', () => {
 
 describe('Add 2FA screen: pasting a secret', () => {
   beforeEach(() => unlockedVaultWith([entry({ id: 'e1' })]));
-  const field = () => screen.getByLabelText(/Or paste the secret key/);
+  const field = () => screen.getByLabelText(/^Or paste the secret key/);
 
   test('a bad secret is explained and nothing is saved', async () => {
     await render(<TotpSetupScreen id="e1" />);
@@ -278,6 +278,6 @@ describe('Add 2FA screen: scanning a QR code', () => {
     expect(screen.getByText(/type the secret key instead/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Allow camera' })).toBeNull();
     await fireEvent.press(button('Cancel'));
-    expect(screen.getByLabelText(/Or paste the secret key/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Or paste the secret key/)).toBeTruthy();
   });
 });

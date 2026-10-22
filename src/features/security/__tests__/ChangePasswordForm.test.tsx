@@ -90,7 +90,7 @@ describe('the form', () => {
   test('starts disabled and explains the change', async () => {
     await render(<ChangePasswordForm />);
     expect(submit()).toBeDisabled();
-    expect(screen.getByText(/only the key that protects them is wrapped again/i)).toBeTruthy();
+    expect(screen.getByText(/only the password that opens them changes/i)).toBeTruthy();
   });
 
   test('shows a live strength meter for the new password', async () => {

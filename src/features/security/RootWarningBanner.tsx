@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TextAction } from '@/components';
 import { useTheme } from '@/theme';
 
 import { detectRootedDevice } from './rootCheck';
@@ -38,14 +39,12 @@ export function RootWarningBanner() {
       }}
     >
       <Text style={[typography.caption, { flex: 1, color: colors.onPrimary }]}>{ROOT_WARNING}</Text>
-      <Pressable
-        accessibilityRole="button"
+      <TextAction
+        label="Dismiss"
         accessibilityLabel="Dismiss warning"
+        color={colors.onPrimary}
         onPress={() => setDismissed(true)}
-        hitSlop={8}
-      >
-        <Text style={[typography.label, { color: colors.onPrimary }]}>Dismiss</Text>
-      </Pressable>
+      />
     </View>
   );
 }

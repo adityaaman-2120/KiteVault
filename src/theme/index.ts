@@ -1,10 +1,10 @@
 import { useColorScheme } from 'react-native';
 
 import { darkColors, lightColors } from './colors';
-import { radius, spacing, typography } from './tokens';
+import { radius, spacing, touch, typography } from './tokens';
 
 export type { ColorTokens } from './colors';
-export { radius, spacing, typography };
+export { radius, spacing, touch, typography };
 
 // Follows the system light/dark setting.
 export function useTheme() {

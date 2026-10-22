@@ -12,6 +12,6 @@ test('Button calls onPress', async () => {
 test('secret TextField is hidden until Show is pressed', async () => {
   await render(<TextField label="Password" secret />);
   expect(screen.getByLabelText('Password').props.secureTextEntry).toBe(true);
-  await fireEvent.press(screen.getByLabelText('Show'));
+  await fireEvent.press(screen.getByLabelText(/^Show/));
   expect(screen.getByLabelText('Password').props.secureTextEntry).toBe(false);
 });

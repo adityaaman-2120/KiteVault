@@ -14,11 +14,23 @@ const BAK = 'vault.kvlt.bak';
 const file = (name: string) => new File(Paths.document, name);
 
 export class StorageError extends Error {
-  constructor(message: string) {
+  // 'no-space': the phone is out of storage. 'write-failed': anything else went wrong.
+  readonly kind: 'no-space' | 'write-failed';
+
+  constructor(message: string, kind: StorageError['kind'] = 'write-failed') {
     super(message);
     this.name = 'StorageError';
+    this.kind = kind;
   }
 }
+
+// Android reports a full disk as ENOSPC / "No space left on device". The text can come wrapped in
+// another error, so it is looked for in the message.
+const isOutOfSpaceError = (error: unknown): boolean =>
+  error instanceof Error && /ENOSPC|no space left|not enough space|disk full/i.test(error.message);
+
+export const isOutOfSpace = (error: unknown): boolean =>
+  error instanceof StorageError && error.kind === 'no-space';
 
 export type VaultFileValidator = (bytes: Uint8Array) => boolean;
 
@@ -50,19 +62,39 @@ export function onVaultFileSaved(listener: () => void): () => void {
 // holds a complete vault, and recoverVaultFile() restores it after a crash.
 export async function saveVaultFile(bytes: Uint8Array): Promise<void> {
   removeQuietly(TMP);
-  const tmp = file(TMP);
-  tmp.create();
-  await tmp.write(bytes);
-
-  // Read back so a short or failed write is caught before it can replace the real vault.
-  if (!bytesEqual(await file(TMP).bytes(), bytes)) {
+  // A full phone or a failed write must leave the current vault exactly as it was: nothing but the
+  // temporary file is touched until the new version has been written and read back.
+  try {
+    const tmp = file(TMP);
+    tmp.create();
+    await tmp.write(bytes);
+    // Read back so a short or failed write is caught before it can replace the real vault.
+    if (!bytesEqual(await file(TMP).bytes(), bytes)) {
+      throw new StorageError('Vault file was not written correctly.');
+    }
+  } catch (error) {
     removeQuietly(TMP);
-    throw new StorageError('Vault file was not written correctly.');
+    if (error instanceof StorageError) throw error;
+    throw isOutOfSpaceError(error)
+      ? new StorageError('The phone is out of storage space.', 'no-space')
+      : new StorageError('Vault file could not be written.');
   }
 
-  removeQuietly(BAK);
-  if (file(MAIN).exists) await file(MAIN).move(file(BAK));
-  await file(TMP).move(file(MAIN));
+  try {
+    removeQuietly(BAK);
+    if (file(MAIN).exists) await file(MAIN).move(file(BAK));
+    await file(TMP).move(file(MAIN));
+  } catch {
+    // The swap stopped half way. Put the old vault back so this run carries on with a vault file;
+    // if even that fails, recoverVaultFile() does it at the next start.
+    try {
+      if (!file(MAIN).exists && file(BAK).exists) await file(BAK).move(file(MAIN));
+      removeQuietly(TMP);
+    } catch {
+      // Left for recoverVaultFile().
+    }
+    throw new StorageError('Vault file could not be replaced.');
+  }
   removeQuietly(BAK);
   for (const listener of [...savedListeners]) {
     try {

@@ -181,12 +181,12 @@ describe('export screen', () => {
     expect(screen.getByText('This file is NOT encrypted')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Export unencrypted CSV' })).toBeDisabled();
 
-    await fireEvent.changeText(screen.getByLabelText(/master password/i), 'wrong');
+    await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), 'wrong');
     await fireEvent.press(screen.getByRole('button', { name: 'Export unencrypted CSV' }));
     expect(await screen.findByText('That master password is wrong.')).toBeTruthy();
     expect(share).not.toHaveBeenCalled();
 
-    await fireEvent.changeText(screen.getByLabelText(/master password/i), PASSWORD);
+    await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), PASSWORD);
     await fireEvent.press(screen.getByRole('button', { name: 'Export unencrypted CSV' }));
     expect(await screen.findByText('Exported')).toBeTruthy();
     expect(share).toHaveBeenCalledTimes(1);
@@ -196,7 +196,7 @@ describe('export screen', () => {
     await render(<ExportScreen />);
     await fireEvent.press(screen.getByRole('button', { name: 'Export encrypted backup' }));
     expect(screen.queryByText('This file is NOT encrypted')).toBeNull();
-    await fireEvent.changeText(screen.getByLabelText(/master password/i), PASSWORD);
+    await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), PASSWORD);
     await fireEvent.press(screen.getByRole('button', { name: 'Export encrypted backup' }));
     expect(await screen.findByText('Exported')).toBeTruthy();
     expect(shared[0]!.name).toMatch(/\.kvault$/);
@@ -328,11 +328,11 @@ describe('import screen', () => {
     await pickAndPreview('KiteVault-2026-01-01.kvault', backup);
     expect(await screen.findByText(/encrypted KiteVault backup/)).toBeTruthy();
 
-    await fireEvent.changeText(screen.getByLabelText(/Master password/), 'wrong');
+    await fireEvent.changeText(screen.getByLabelText(/^Master password/), 'wrong');
     await fireEvent.press(button('Open backup'));
     expect(await screen.findByText('That master password is wrong.')).toBeTruthy();
 
-    await fireEvent.changeText(screen.getByLabelText(/Master password/), PASSWORD);
+    await fireEvent.changeText(screen.getByLabelText(/^Master password/), PASSWORD);
     await fireEvent.press(button('Open backup'));
     expect(await screen.findByText('KiteVault backup (.kvault)')).toBeTruthy();
     expect(screen.getByText('1 new · 0 already in your vault')).toBeTruthy();

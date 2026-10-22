@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
+import { TextAction } from '@/components';
 import { copySecret } from '@/features/clipboard/clipboardService';
 import { useTheme } from '@/theme';
 
@@ -14,15 +15,6 @@ type Props = {
   // Extra buttons, for example "Open" for a website.
   extra?: { label: string; onPress: () => void }[];
 };
-
-function ActionText({ label, onPress }: { label: string; onPress: () => void }) {
-  const { colors, typography } = useTheme();
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={8}>
-      <Text style={[typography.label, { color: colors.primary }]}>{label}</Text>
-    </Pressable>
-  );
-}
 
 export function DetailRow({ label, value, secret = false, copyable = true, extra = [] }: Props) {
   const { colors, spacing, typography } = useTheme();
@@ -41,16 +33,21 @@ export function DetailRow({ label, value, secret = false, copyable = true, extra
       </Text>
       <View style={{ flexDirection: 'row', gap: spacing.lg }}>
         {secret ? (
-          <ActionText
-            label={shown ? `Hide ${label}` : `Show ${label}`}
+          <TextAction
+            label={shown ? 'Hide' : 'Show'}
+            accessibilityLabel={shown ? `Hide ${label}` : `Show ${label}`}
             onPress={() => setShown((v) => !v)}
           />
         ) : null}
         {copyable ? (
-          <ActionText label={`Copy ${label}`} onPress={() => void copySecret(value)} />
+          <TextAction
+            label="Copy"
+            accessibilityLabel={`Copy ${label}`}
+            onPress={() => void copySecret(value)}
+          />
         ) : null}
         {extra.map((action) => (
-          <ActionText key={action.label} label={action.label} onPress={action.onPress} />
+          <TextAction key={action.label} label={action.label} onPress={action.onPress} />
         ))}
       </View>
     </View>

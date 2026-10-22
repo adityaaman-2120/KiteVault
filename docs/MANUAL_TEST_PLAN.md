@@ -250,6 +250,19 @@ Needed to back the claim "no analytics, no tracking". See `docs/SECURITY_REVIEW.
 - [ ] **16.4** Now use the Drive backup and the breach check: connections only to Google sign-in/Drive endpoints and `api.pwnedpasswords.com`, and for the latter only a 5-character hash prefix in the address.
 - [ ] **16.5** Any other host (especially `firebaselogging-pa.googleapis.com` or other Google logging hosts) is a **failed release**: report it.
 
+## 18. Release polish checks (on a phone)
+
+- [ ] Icon: looks right with round, square and squircle shapes, with themed icons on, on a light and a dark wallpaper. Name under the icon is "KiteVault".
+- [ ] Splash: night-blue screen with the kite, no white flash, on Android 11 and on Android 12 or newer.
+- [ ] Welcome, unlock and About show the kite, "KiteVault" and "by Kitelux".
+- [ ] TalkBack on: walk through welcome, create vault, unlock, list, an entry, settings. Every control is announced with a name and role; the password box says "Show Master password"; errors are read out.
+- [ ] Largest font size and largest display size: nothing is cut off or overlaps; the list still scrolls to the end; every button can be tapped.
+- [ ] Unlock time (5 runs, release build, a few hundred entries): ____ s median. Cold start (`am start -W` TotalTime): ____ ms. Decide on Argon2 settings using the table in docs/RELEASE_POLISH.md.
+- [ ] Fill the phone's storage, then save an entry: the message says the phone is out of storage space; after freeing space the same change saves, and the vault still unlocks.
+- [ ] Turn on airplane mode in the middle of a backup (or kill the app while "backing up"): after reopening, the change is backed up on the next automatic or manual backup.
+- [ ] Force-stop the app right after saving an entry (repeat 10 times): the entry is there, or the previous state is, and the vault always unlocks.
+- [ ] Damaged vault (debug build only: overwrite the vault file with zeros): unlock says it is damaged, the damaged-vault card is shown, erasing it leads to the welcome screen, and "Restore from Google Drive" brings the backup back.
+
 ## 17. Sign-off
 
 | Section                      | Result (pass / fail / skipped) | Notes |

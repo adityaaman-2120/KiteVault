@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { useTheme } from '@/theme';
+import { touch, useTheme } from '@/theme';
 
 type Props<T extends string | number> = {
   label: string;
@@ -31,11 +31,13 @@ export function ChoiceGroup<T extends string | number>({
               accessibilityLabel={option.label}
               onPress={() => onChange(option.value)}
               style={{
+                minHeight: touch.min,
+                justifyContent: 'center',
                 paddingVertical: spacing.sm,
                 paddingHorizontal: spacing.lg,
                 borderRadius: radius.pill,
                 borderWidth: 1,
-                borderColor: selected ? colors.primary : colors.border,
+                borderColor: selected ? colors.primary : colors.outline,
                 backgroundColor: selected ? colors.primary : colors.surface,
               }}
             >
