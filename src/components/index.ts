@@ -1,5 +1,5 @@
 export { Button } from './Button';
-export { Card } from './Card';
+export { Card, CardGroup } from './Card';
 export { Checkbox } from './Checkbox';
 export { Chip } from './Chip';
 export { ChoiceGroup } from './ChoiceGroup';

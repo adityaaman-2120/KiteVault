@@ -102,10 +102,10 @@ describe('the generated license list', () => {
 });
 
 describe('Settings sections', () => {
-  test('has Security, Backup, Data and About, in that order', async () => {
+  test('has a Settings title, then Security, Backup, Data and About, in that order', async () => {
     await render(<SettingsForm />);
     const headers = screen.getAllByRole('header').map((h) => h.props.children as string);
-    expect(headers).toEqual(['Security', 'Backup', 'Data', 'About']);
+    expect(headers).toEqual(['Settings', 'Security', 'Backup', 'Data', 'About']);
   });
 
   test('Security has the change-password button', async () => {

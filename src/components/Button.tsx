@@ -2,6 +2,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import { useTheme } from '@/theme';
 
+import { useInsideCard } from './Card';
+
 type Props = {
   title: string;
   onPress?: () => void;
@@ -9,7 +11,7 @@ type Props = {
   disabled?: boolean;
   // Shows a spinner and ignores presses.
   loading?: boolean;
-  // A smaller button for actions inside a card.
+  // A smaller button. Automatic inside a Card.
   compact?: boolean;
 };
 
@@ -19,9 +21,12 @@ export function Button({
   variant = 'primary',
   disabled = false,
   loading = false,
-  compact = false,
+  compact: compactProp,
 }: Props) {
   const { colors, radius, spacing, typography } = useTheme();
+  // Smaller inside a card, unless the caller says otherwise.
+  const insideCard = useInsideCard();
+  const compact = compactProp ?? insideCard;
   const filled = variant !== 'secondary';
   const accent = variant === 'danger' ? colors.danger : colors.primary;
   const textColor = filled ? colors.onPrimary : accent;

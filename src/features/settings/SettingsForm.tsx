@@ -1,7 +1,16 @@
 import { useRouter } from 'expo-router';
-import { Text } from 'react-native';
+import type { ReactNode } from 'react';
+import { Text, View } from 'react-native';
 
-import { Button, Card, ChoiceGroup, ScreenContainer, SectionHeader } from '@/components';
+import {
+  Button,
+  Card,
+  CardGroup,
+  ChoiceGroup,
+  ScreenContainer,
+  ScreenHeader,
+  SectionHeader,
+} from '@/components';
 import { appVersion } from '@/features/about/AboutScreen';
 import { AutofillCard } from '@/features/autofill/AutofillCard';
 import { BackupCard } from '@/features/backup/BackupCard';
@@ -18,6 +27,17 @@ import { useVaultStore } from '@/vault';
 import { BACKGROUND_LOCK_OPTIONS, INACTIVITY_LOCK_OPTIONS } from './appSettings';
 import { useSettingsStore } from './useSettingsStore';
 
+// A section title with one rounded surface under it that holds all of the section's rows.
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  const { spacing } = useTheme();
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <SectionHeader title={title} />
+      <CardGroup>{children}</CardGroup>
+    </View>
+  );
+}
+
 export function SettingsForm() {
   const router = useRouter();
   const { colors, typography } = useTheme();
@@ -27,60 +47,73 @@ export function SettingsForm() {
   const lock = useVaultStore((s) => s.lock);
 
   return (
-    <ScreenContainer scroll>
-      <SectionHeader title="Security" />
-      <Card>
-        <Text style={[typography.heading, { color: colors.text }]}>Master password</Text>
-        <Text style={[typography.body, { color: colors.textMuted }]}>
-          Change the password that unlocks your vault.
-        </Text>
-        <Button
-          title="Change master password"
-          variant="secondary"
-          onPress={() => router.push('/change-password')}
-        />
-      </Card>
-      <Card>
-        <Text style={[typography.heading, { color: colors.text }]}>Auto-lock</Text>
-        <ChoiceGroup
-          label="Lock after leaving the app"
-          options={BACKGROUND_LOCK_OPTIONS}
-          value={backgroundLockSeconds}
-          onChange={(value) => void update({ backgroundLockSeconds: value })}
-        />
-        <ChoiceGroup
-          label="Lock after inactivity"
-          options={INACTIVITY_LOCK_OPTIONS}
-          value={inactivityLockMinutes}
-          onChange={(value) => void update({ inactivityLockMinutes: value })}
-        />
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
-          Closing the app always locks the vault.
-        </Text>
-      </Card>
-      <SecurityCheckCard />
-      <RecoveryKeyCard />
-      <BiometricSettingsCard />
-      <AutofillCard />
-      <PrivacySettingsCard />
-      <Button title="Lock now" variant="secondary" onPress={lock} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScreenHeader title="Settings" subtitle="Security, backup and your data" />
+      <ScreenContainer scroll>
+        <Section title="Security">
+          <Card>
+            <Text style={[typography.heading, { color: colors.text }]}>Master password</Text>
+            <Text style={[typography.body, { color: colors.textMuted }]}>
+              Change the password that unlocks your vault.
+            </Text>
+            <Button
+              title="Change master password"
+              variant="secondary"
+              onPress={() => router.push('/change-password')}
+            />
+          </Card>
+          <Card>
+            <Text style={[typography.heading, { color: colors.text }]}>Auto-lock</Text>
+            <ChoiceGroup
+              label="Lock after leaving the app"
+              options={BACKGROUND_LOCK_OPTIONS}
+              value={backgroundLockSeconds}
+              onChange={(value) => void update({ backgroundLockSeconds: value })}
+            />
+            <ChoiceGroup
+              label="Lock after inactivity"
+              options={INACTIVITY_LOCK_OPTIONS}
+              value={inactivityLockMinutes}
+              onChange={(value) => void update({ inactivityLockMinutes: value })}
+            />
+            <Text style={[typography.caption, { color: colors.textMuted }]}>
+              Closing the app always locks the vault.
+            </Text>
+          </Card>
+          <SecurityCheckCard />
+          <RecoveryKeyCard />
+          <BiometricSettingsCard />
+          <AutofillCard />
+          <PrivacySettingsCard />
+          <Card>
+            <Button title="Lock now" variant="secondary" onPress={lock} />
+          </Card>
+        </Section>
 
-      <SectionHeader title="Backup" />
-      <BackupCard />
+        <Section title="Backup">
+          <BackupCard />
+        </Section>
 
-      <SectionHeader title="Data" />
-      <DataInfoCard />
-      <DataTransferCard />
-      <EraseVaultCard />
+        <Section title="Data">
+          <DataInfoCard />
+          <DataTransferCard />
+          <EraseVaultCard />
+        </Section>
 
-      <SectionHeader title="About" />
-      <Card>
-        <Text style={[typography.heading, { color: colors.text }]}>KiteVault</Text>
-        <Text style={[typography.body, { color: colors.textMuted }]}>
-          Version {appVersion()} · by Kitelux
-        </Text>
-        <Button title="About KiteVault" variant="secondary" onPress={() => router.push('/about')} />
-      </Card>
-    </ScreenContainer>
+        <Section title="About">
+          <Card>
+            <Text style={[typography.heading, { color: colors.text }]}>KiteVault</Text>
+            <Text style={[typography.body, { color: colors.textMuted }]}>
+              Version {appVersion()} · by Kitelux
+            </Text>
+            <Button
+              title="About KiteVault"
+              variant="secondary"
+              onPress={() => router.push('/about')}
+            />
+          </Card>
+        </Section>
+      </ScreenContainer>
+    </View>
   );
 }

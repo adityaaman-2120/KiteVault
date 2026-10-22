@@ -25,7 +25,7 @@ export const elevation = {
 
 export const typography = {
   title: { fontSize: 26, fontWeight: '800', lineHeight: 32, letterSpacing: -0.5 },
-  heading: { fontSize: 17, fontWeight: '700', lineHeight: 24, letterSpacing: -0.2 },
+  heading: { fontSize: 16, fontWeight: '700', lineHeight: 24, letterSpacing: -0.2 },
   body: { fontSize: 14, fontWeight: '400', lineHeight: 20 },
   label: { fontSize: 12.5, fontWeight: '500', lineHeight: 16 },
   caption: { fontSize: 12, fontWeight: '400', lineHeight: 16 },

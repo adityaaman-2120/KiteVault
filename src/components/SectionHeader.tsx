@@ -15,7 +15,6 @@ export function SectionHeader({ title }: { title: string }) {
           fontWeight: '700',
           textTransform: 'uppercase',
           letterSpacing: 1.2,
-          marginTop: spacing.lg,
           marginLeft: spacing.xs,
         },
       ]}

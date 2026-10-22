@@ -48,6 +48,8 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: 'Settings',
+          // The Settings screen draws its own header panel.
+          headerShown: false,
           tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
         }}
       />
