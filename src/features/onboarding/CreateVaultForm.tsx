@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Text } from 'react-native';
 
 import { Button, Checkbox, ScreenContainer, StrengthMeter, TextField } from '@/components';
+import { useBiometricOfferStore } from '@/features/biometric/biometricOfferStore';
 import { useTheme } from '@/theme';
 import { useVaultStore, VaultError } from '@/vault';
 
@@ -42,6 +43,8 @@ export function CreateVaultForm() {
     setError(null);
     try {
       await createVault(password);
+      // The home screen offers biometric unlock right away, while it is easiest to say yes.
+      useBiometricOfferStore.getState().request();
       router.replace('/vault');
     } catch (e) {
       setError(describeError(e));

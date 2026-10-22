@@ -11,6 +11,7 @@ import { createVault, getVaultKeyCopy, isVaultUnlocked, useVaultStore } from '@/
 import { FAST_KDF, resetVaultFiles } from '@/vault/__support__/testUtils';
 
 import { fakeNative } from '../__support__/fakeNativeKeystore';
+import { useBiometricOfferStore } from '../biometricOfferStore';
 
 jest.mock('@/native/keystore/nativeModule', () => ({
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -39,6 +40,7 @@ beforeEach(() => {
   useSettingsStore.setState(DEFAULT_APP_SETTINGS);
   useVaultStore.setState({ data: null });
   useSessionStore.getState().setStatus('locked');
+  useBiometricOfferStore.setState({ pending: false });
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 afterEach(() => jest.restoreAllMocks());
@@ -147,8 +149,9 @@ describe('master password unlock', () => {
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/vault'));
     expect(fakeNative.recordPasswordUnlock).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('Enable biometric unlock?');
+    // The popup on the home screen is requested (it is the same one shown after creating a vault).
+    await waitFor(() => expect(useBiometricOfferStore.getState().pending).toBe(true));
+    expect(Alert.alert).not.toHaveBeenCalled(); // no plain message any more
   });
 
   test('a wrong password does not restart the counters', async () => {
@@ -160,7 +163,7 @@ describe('master password unlock', () => {
 
     expect(await screen.findByText('Wrong password. Please try again.')).toBeTruthy();
     expect(fakeNative.recordPasswordUnlock).not.toHaveBeenCalled();
-    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(useBiometricOfferStore.getState().pending).toBe(false);
   });
 });
 

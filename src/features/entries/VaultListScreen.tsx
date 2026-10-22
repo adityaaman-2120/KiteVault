@@ -5,6 +5,7 @@ import { Alert, FlatList, Image, Pressable, ScrollView, Text, View } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chip, EmptyState, SegmentedControl } from '@/components';
+import { BiometricOfferSheet } from '@/features/biometric/BiometricOfferSheet';
 import { LockButton } from '@/features/lock/LockButton';
 import { useTheme } from '@/theme';
 import { useVaultStore, type Entry, type EntryType } from '@/vault';
@@ -358,6 +359,8 @@ export function VaultListScreen() {
           />
         </View>
       </Pressable>
+
+      <BiometricOfferSheet />
 
       <AddEntrySheet
         visible={adding}

@@ -585,3 +585,18 @@ Details and procedures: `docs/RELEASE_POLISH.md`.
 - **Safe:** the animation shows no vault data and makes no network calls. The plain native splash is hidden as soon as the animation is on screen. The fonts are optional: without the Sora font the phone's own font is used.
 - **Navigation:** nothing navigates while it plays. The layout only moves between screens when the vault goes from unlocked to locked or is erased, and neither can happen before the app has loaded. The first screen is chosen when the navigator mounts afterwards.
 - **Tests:** `src/features/splash/__tests__/KiteVaultSplash.test.tsx` uses a small hand-written mock of Reanimated (its own jest mock needs the native runtime), so it checks what is shown and what a tap does, not the motion itself.
+
+## Biometric offer after creating the vault (2026-10-23)
+
+- **What:** right after the master password is created, the home screen shows a popup from the bottom: a fingerprint picture, "Unlock with your fingerprint or face", three short benefits, **Turn on** and **Add later**, and a note that the master password is asked again after a restart, after 7 days or after 5 biometric unlocks. Turning it on shows the system prompt once, then "Biometric unlock is on" with a Done button. A cancelled prompt explains itself and leaves both buttons, so the person can try again or add it later.
+- **Why there:** it is the moment the person has just chosen a password and is most likely to say yes, and the home screen is already open behind the popup. Other password managers also offer it at setup (and banking apps use the same "turn on / not now" shape).
+- **Add later** closes the popup and changes nothing, so it is not a "never": the existing question after a master-password unlock (with its "Don't ask again") still comes later. That older question is still a plain Android alert, not this popup.
+- **Not shown** on a phone without biometrics, or when biometric unlock is already on; the pending offer is then dropped. Nothing about the offer is written to disk.
+- **How:** `CreateVaultForm` asks `useBiometricOfferStore` for the offer once the vault exists; `BiometricOfferSheet` on the home screen shows it and uses the existing `enableBiometric`. No change to how biometric keys are stored or checked.
+- Tests: `src/features/biometric/__tests__/BiometricOfferSheet.test.tsx` and two in `CreateVaultForm.test.tsx`.
+
+### Update (2026-10-23): one popup everywhere, and "Don't ask again"
+
+- The question after a master-password unlock (it used to be a plain Android alert) now shows the **same popup** as the one after creating the vault. `offerBiometricUnlock` no longer shows anything itself: it checks the same conditions as before (biometrics available, still off, not dismissed) and asks the home screen for the popup.
+- The popup now has three choices: **Turn on**, **Add later** (not remembered; it can come back at the next unlock) and **Don't ask again** (remembered in the settings as `biometricPromptDismissed`; the popup is never shown again, from either place, and biometric unlock can still be turned on in Settings).
+- Tests: `offerBiometricUnlock.test.ts` and `unlockBiometricUi.test.tsx` now check the request instead of an alert; `BiometricOfferSheet.test.tsx` covers the third button.

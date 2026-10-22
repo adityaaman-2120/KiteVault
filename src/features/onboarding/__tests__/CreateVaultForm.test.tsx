@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 
 import { useVaultStore, VaultError } from '@/vault';
 
+import { useBiometricOfferStore } from '@/features/biometric/biometricOfferStore';
 import { CreateVaultForm } from '../CreateVaultForm';
 
 const mockReplace = jest.fn();
@@ -103,6 +104,33 @@ describe('CreateVaultForm submit', () => {
 
     finish();
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/vault'));
+  });
+
+  test('asks the home screen to offer biometric unlock, only once the vault exists', async () => {
+    useBiometricOfferStore.setState({ pending: false });
+    let finish!: () => void;
+    create.mockReturnValue(new Promise<void>((resolve) => (finish = resolve)));
+    await render(<CreateVaultForm />);
+    await fill();
+
+    void fireEvent.press(submitButton());
+    await screen.findByText('Creating vault…');
+    expect(useBiometricOfferStore.getState().pending).toBe(false); // not before it is created
+
+    finish();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/vault'));
+    expect(useBiometricOfferStore.getState().pending).toBe(true);
+  });
+
+  test('does not ask for biometrics when creating the vault failed', async () => {
+    useBiometricOfferStore.setState({ pending: false });
+    create.mockRejectedValue(new Error('disk full'));
+    await render(<CreateVaultForm />);
+    await fill();
+    await fireEvent.press(submitButton());
+
+    await screen.findByText(/could not be created/);
+    expect(useBiometricOfferStore.getState().pending).toBe(false);
   });
 
   test('ignores a second press while creating', async () => {
