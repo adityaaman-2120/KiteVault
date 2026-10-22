@@ -13,6 +13,7 @@ import {
   useScreenProtection,
 } from '@/features/privacy/screenProtection';
 import { RootWarningBanner } from '@/features/security/RootWarningBanner';
+import { KiteVaultSplash } from '@/features/splash/KiteVaultSplash';
 import { useSessionStore } from '@/features/session/useSessionStore';
 import { useSettingsStore } from '@/features/settings/useSettingsStore';
 import { useTheme } from '@/theme';
@@ -27,6 +28,8 @@ export default function RootLayout() {
   const status = useSessionStore((s) => s.status);
   const { colors } = useTheme();
   const [ready, setReady] = useState(false);
+  // The launch animation plays while the app loads, and ends by itself or when it is tapped.
+  const [splashDone, setSplashDone] = useState(false);
   const previousStatus = useRef(status);
 
   useAutoLock();
@@ -37,10 +40,12 @@ export default function RootLayout() {
   useEffect(() => {
     Promise.all([useSettingsStore.getState().load(), useVaultStore.getState().initialize()])
       .catch(() => {}) // on failure we use defaults and stay on the welcome flow; creating re-checks
-      .finally(() => {
-        setReady(true);
-        SplashScreen.hideAsync();
-      });
+      .finally(() => setReady(true));
+  }, []);
+
+  // The launch animation is on screen from the first frame, so the plain native splash can go.
+  useEffect(() => {
+    void SplashScreen.hideAsync();
   }, []);
 
   // Move to the right screen when the state changes: locked (button, timeout, background) goes to
@@ -63,7 +68,14 @@ export default function RootLayout() {
   // Automatic cloud backup (does nothing unless the user turned it on).
   useEffect(() => (ready ? startAutoBackup() : undefined), [ready]);
 
-  if (!ready) return null;
+  if (!ready || !splashDone) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <KiteVaultSplash onFinish={() => setSplashDone(true)} />
+      </>
+    );
+  }
 
   return (
     // Observes touches (without handling them) so inactivity can be measured.
