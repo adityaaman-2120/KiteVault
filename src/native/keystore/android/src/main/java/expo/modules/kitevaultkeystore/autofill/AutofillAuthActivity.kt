@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.service.autofill.Dataset
-import android.service.autofill.FillResponse
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.ViewGroup
@@ -12,7 +11,6 @@ import android.view.WindowManager
 import android.view.autofill.AutofillManager
 import android.view.autofill.AutofillValue
 import android.widget.LinearLayout
-import android.widget.RemoteViews
 import androidx.fragment.app.FragmentActivity
 import expo.modules.kitevaultkeystore.ErrorCode
 import expo.modules.kitevaultkeystore.R
@@ -389,21 +387,17 @@ class AutofillAuthActivity : FragmentActivity() {
       return
     }
     done = true
-    // Only the boxes we found are given a value (the user name only when there is one). The
-    // presentation is required by the API but never shown, because the answer is filled in
-    // straight away.
+    // Only the boxes we found are given a value (the user name only when there is one). What is
+    // handed back is a dataset, because the suggestion that was tapped was a locked dataset:
+    // Android fills a dataset that comes back from the unlock screen into the boxes right away.
+    // (The question "Save to KiteVault?" belongs to the first answer and is not repeated here.)
     @Suppress("DEPRECATION")
-    val dataset = Dataset.Builder(RemoteViews(packageName, R.layout.kitevault_autofill_locked_item))
+    val dataset = Dataset.Builder()
     request.passwordId?.let { dataset.setValue(it, AutofillValue.forText(password)) }
     request.usernameId?.let {
       if (username.isNotEmpty()) dataset.setValue(it, AutofillValue.forText(username))
     }
-    val response =
-      FillResponse.Builder()
-        .addDataset(dataset.build())
-        .apply { request.saveInfo?.let { setSaveInfo(it) } }
-        .build()
-    setResult(Activity.RESULT_OK, Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response))
+    setResult(Activity.RESULT_OK, Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset.build()))
     clear()
     finish()
   }

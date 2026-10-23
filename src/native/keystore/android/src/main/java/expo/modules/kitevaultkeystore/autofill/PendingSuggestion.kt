@@ -1,6 +1,5 @@
 package expo.modules.kitevaultkeystore.autofill
 
-import android.service.autofill.SaveInfo
 import android.view.autofill.AutofillId
 
 /**
@@ -21,8 +20,6 @@ internal class PendingSuggestion(
   val displayName: String,
   /** Every visible new-password box on the form, so "confirm password" gets the same value. */
   val passwordIds: List<AutofillId>,
-  /** Asks Android to offer to save the form after it is submitted. */
-  val saveInfo: SaveInfo?,
 )
 
 /** The process-wide notebook of suggestion requests that are waiting for the user. */

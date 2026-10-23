@@ -215,6 +215,7 @@ Full list: `docs/AUTOFILL_TESTING.md`. Minimum for every release:
 - [ ] **14.22 Change-password page** (old password, new password, confirm): tap the **old** box: "Unlock KiteVault to fill" and the old password fills (never a strong password there). Tap the **new** box: "Suggest strong password", and both new boxes are filled. After you submit, KiteVault opens and offers **Update password** for your login on that site (one login: offered directly; several: it asks which one you changed).
 - [ ] **14.23 Sign-in over two pages** (for example Google or Microsoft): on the user-name page KiteVault offers to fill the **user name only**; on the password page it fills the password. A newsletter or contact form with an e-mail box shows nothing.
 - [ ] **14.24 Nothing is guessed from one box:** a normal sign-in page with a single password box still fills the saved login, and never shows "Suggest strong password" first.
+- [ ] **14.25 Fills at once, no second tap:** after the fingerprint (saved login) or after **Use password** (strong password), the boxes are filled straight away. The drop-down must **not** show "Unlock KiteVault to fill" or "Suggest strong password" a second time for you to tap again.
 - [ ] **14.15** On a plain **http** page, in an in-app browser (14.6) and on a page that mixes sites, no strong-password suggestion appears.
 - [ ] **14.16** The suggestion works with biometric unlock **off** (it does not need a fingerprint), and saving the password afterwards still needs the master password.
 
@@ -299,4 +300,4 @@ Needed to back the claim "no analytics, no tracking". See `docs/SECURITY_REVIEW.
 | 15 Phone conditions          |                                |       |
 | 16 Network capture           |                                |       |
 
-**Do not release** if any of these failed: 2.5, 4.2, 5.2, 6.4, 6.7, 7.1 to 7.3, 10.2, 10.3, 11.6, 11.10, 14.2 to 14.4, 14.13, 14.15, 14.22, 14.24, 15.3, or anything in section 16.
+**Do not release** if any of these failed: 2.5, 4.2, 5.2, 6.4, 6.7, 7.1 to 7.3, 10.2, 10.3, 11.6, 11.10, 14.2 to 14.4, 14.13, 14.15, 14.22, 14.24, 14.25, 15.3, or anything in section 16.

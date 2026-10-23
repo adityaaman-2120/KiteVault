@@ -157,9 +157,24 @@ test('random passwords come only from SecureRandom, never from a weaker source',
 
 test('the service answers with a locked suggestion and never fills by itself', () => {
   const service = code(path.join(MAIN, 'autofill/KiteVaultAutofillService.kt'));
+  // The suggestion is a dataset that carries its own unlock step ...
   expect(service).toContain('setAuthentication');
-  expect(service).not.toContain('addDataset');
+  expect(service).toContain('addDataset');
+  // ... with no value in it: every box is set to null, and the service never builds a value.
+  expect(service).toMatch(/setValue\(id, null\)/);
   expect(service).not.toContain('AutofillValue');
+  expect(service).not.toContain('forText');
+  // It is not an authentication for the whole answer, which Chrome shows as a second list item.
+  expect(service).not.toMatch(/FillResponse\.Builder\(\)[\s\S]{0,80}\.setAuthentication/);
+});
+
+test('the unlock and strong-password screens hand back a dataset, which Android fills at once', () => {
+  for (const name of ['AutofillAuthActivity.kt', 'AutofillSuggestActivity.kt']) {
+    const activity = code(path.join(MAIN, 'autofill', name));
+    expect(activity).toContain('Dataset.Builder()');
+    // Not a whole answer: that would be shown as another list item that has to be tapped again.
+    expect(activity).not.toContain('FillResponse');
+  }
 });
 
 test('the pending-save file is separate from the vault and is only written encrypted', () => {

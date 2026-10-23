@@ -4,14 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.service.autofill.Dataset
-import android.service.autofill.FillResponse
 import android.view.WindowManager
 import android.view.autofill.AutofillManager
 import android.view.autofill.AutofillValue
-import android.widget.RemoteViews
 import android.widget.TextView
 import androidx.fragment.app.FragmentActivity
-import expo.modules.kitevaultkeystore.R
 
 /**
  * The "Use strong password?" sheet shown on top of a sign-up page.
@@ -103,17 +100,13 @@ class AutofillSuggestActivity : FragmentActivity() {
     // the app offers to save it. If the sign-up goes through, Android's own "Save?" replaces it.
     keepForSaving(pending)
 
-    // Only the new-password boxes found by the service are given a value. The presentation is
-    // required by the API but never shown, because the answer is filled in straight away.
+    // Only the new-password boxes found by the service are given a value. What is handed back is
+    // a dataset, because the suggestion that was tapped was a locked dataset: Android fills a
+    // dataset that comes back from this screen into the boxes right away, with no second tap.
     @Suppress("DEPRECATION")
-    val dataset = Dataset.Builder(RemoteViews(packageName, R.layout.kitevault_autofill_suggest_item))
+    val dataset = Dataset.Builder()
     for (id in pending.passwordIds) dataset.setValue(id, AutofillValue.forText(password))
-    val response =
-      FillResponse.Builder()
-        .addDataset(dataset.build())
-        .apply { pending.saveInfo?.let { setSaveInfo(it) } }
-        .build()
-    setResult(Activity.RESULT_OK, Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response))
+    setResult(Activity.RESULT_OK, Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset.build()))
     clear()
     finish()
   }

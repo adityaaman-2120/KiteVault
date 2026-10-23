@@ -7,6 +7,7 @@ import android.content.IntentSender
 import android.os.Build
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
+import android.service.autofill.Dataset
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
@@ -137,7 +138,7 @@ class KiteVaultAutofillService : AutofillService() {
 
     val ticket =
       FillRequests.registry.put(
-        PendingFill(origin, ownerPackage, displayName, passwordId, usernameId, saveInfo, allowSuggest)
+        PendingFill(origin, ownerPackage, displayName, passwordId, usernameId, allowSuggest)
       )
 
     val sender = screenSender(AutofillAuthActivity::class.java, ticket)
@@ -145,10 +146,31 @@ class KiteVaultAutofillService : AutofillService() {
     // The text of the suggestion is fixed. It does not contain the web address or any account.
     val presentation = RemoteViews(packageName, R.layout.kitevault_autofill_locked_item)
 
-    val ids = listOfNotNull(passwordId, usernameId).toTypedArray()
+    val ids = listOfNotNull(passwordId, usernameId)
+    return lockedAnswer(ids, sender, presentation, saveInfo)
+  }
+
+  /**
+   * The answer: ONE suggestion that is locked behind its own unlock step, with no value in it.
+   *
+   * It is a dataset that carries its own authentication (not an authentication for the whole
+   * answer) on purpose. When the unlock screen hands a dataset back, Android fills it into the
+   * boxes straight away. When the unlock screen hands back a whole answer instead, Chrome shows it
+   * as a second list item and the person has to tap it again.
+   */
+  private fun lockedAnswer(
+    ids: List<AutofillId>,
+    sender: IntentSender,
+    presentation: RemoteViews,
+    saveInfo: SaveInfo?,
+  ): FillResponse {
     @Suppress("DEPRECATION")
+    val locked = Dataset.Builder(presentation)
+    // A box with no value yet: it only says "this suggestion is for this box".
+    for (id in ids) locked.setValue(id, null)
+    locked.setAuthentication(sender)
     return FillResponse.Builder()
-      .setAuthentication(ids, sender, presentation)
+      .addDataset(locked.build())
       .apply { saveInfo?.let { setSaveInfo(it) } }
       .build()
   }
@@ -183,16 +205,12 @@ class KiteVaultAutofillService : AutofillService() {
       }
     val ticket =
       SuggestionRequests.registry.put(
-        PendingSuggestion(origin, parsed.screen.packageName, displayName, ids, saveInfo)
+        PendingSuggestion(origin, parsed.screen.packageName, displayName, ids)
       )
     val sender = screenSender(AutofillSuggestActivity::class.java, ticket)
     // The text of the suggestion is fixed. It does not contain the web address or any account.
     val presentation = RemoteViews(packageName, R.layout.kitevault_autofill_suggest_item)
-    @Suppress("DEPRECATION")
-    return FillResponse.Builder()
-      .setAuthentication(ids.toTypedArray(), sender, presentation)
-      .apply { saveInfo?.let { setSaveInfo(it) } }
-      .build()
+    return lockedAnswer(ids, sender, presentation, saveInfo)
   }
 
   /**

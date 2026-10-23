@@ -1,6 +1,5 @@
 package expo.modules.kitevaultkeystore.autofill
 
-import android.service.autofill.SaveInfo
 import android.view.autofill.AutofillId
 
 /**
@@ -21,8 +20,6 @@ internal class PendingFill(
   /** The password box to fill; null on the user-name-only first page of a two-page sign-in. */
   val passwordId: AutofillId?,
   val usernameId: AutofillId?,
-  /** Asks Android to offer to save the form afterwards; null when the origin is not trusted. */
-  val saveInfo: SaveInfo? = null,
   /**
    * Whether KiteVault may offer a strong password on this screen. True on a page that has only
    * sign-in boxes (an unmarked sign-up page looks exactly like that). False on the user-name-only
