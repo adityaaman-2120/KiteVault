@@ -62,7 +62,7 @@
       [
         "./plugins/withGoogleBackup",
         {
-          "enabled": false,
+          "enabled": true,
           "webClientId": ""
         }
       ],
@@ -78,7 +78,7 @@
         }
       },
       "cloudBackup": {
-        "enabled": false,
+        "enabled": true,
         "webClientId": ""
       },
       "eas": {
