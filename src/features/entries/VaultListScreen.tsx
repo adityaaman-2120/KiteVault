@@ -4,7 +4,7 @@ import { Alert, FlatList, Image, Pressable, ScrollView, Text, View } from 'react
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chip, EmptyState, SegmentedControl } from '@/components';
+import { Button, Chip, EdgeFade, EmptyState, SegmentedControl } from '@/components';
 import { BiometricOfferSheet } from '@/features/biometric/BiometricOfferSheet';
 import { LockButton } from '@/features/lock/LockButton';
 import { useTheme } from '@/theme';
@@ -231,36 +231,40 @@ export function VaultListScreen() {
           }}
         >
           {folders && folders.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              style={{ flex: 1 }}
-            >
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                <Chip
-                  tone="soft"
-                  label="All folders"
-                  selected={folderId === null}
-                  onPress={() => setFolderId(null)}
-                />
-                <Chip
-                  tone="soft"
-                  label="No folder"
-                  selected={folderId === ''}
-                  onPress={() => setFolderId(folderId === '' ? null : '')}
-                />
-                {folders.map((f) => (
+            // The chips fade out softly at the right edge, before the two buttons, instead of
+            // being cut off by a hard line.
+            <View style={{ flex: 1 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={{ flexDirection: 'row', gap: spacing.sm, paddingRight: spacing.xl }}>
                   <Chip
                     tone="soft"
-                    key={f.id}
-                    label={f.name}
-                    selected={folderId === f.id}
-                    onPress={() => setFolderId(folderId === f.id ? null : f.id)}
+                    label="All folders"
+                    selected={folderId === null}
+                    onPress={() => setFolderId(null)}
                   />
-                ))}
-              </View>
-            </ScrollView>
+                  <Chip
+                    tone="soft"
+                    label="No folder"
+                    selected={folderId === ''}
+                    onPress={() => setFolderId(folderId === '' ? null : '')}
+                  />
+                  {folders.map((f) => (
+                    <Chip
+                      tone="soft"
+                      key={f.id}
+                      label={f.name}
+                      selected={folderId === f.id}
+                      onPress={() => setFolderId(folderId === f.id ? null : f.id)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+              <EdgeFade side="right" />
+            </View>
           ) : (
             <View style={{ flex: 1 }} />
           )}

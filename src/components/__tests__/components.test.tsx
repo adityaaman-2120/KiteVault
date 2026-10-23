@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { Button, Callout, TextField } from '..';
+import { Button, Callout, EdgeFade, TextField } from '..';
 
 test('Button calls onPress', async () => {
   const onPress = jest.fn();
@@ -45,4 +45,29 @@ describe('Callout', () => {
       expect(screen.getByText('Hello')).toBeTruthy();
     },
   );
+});
+
+describe('EdgeFade', () => {
+  test('lets every touch through to what is under it', async () => {
+    const onPress = jest.fn();
+    await render(
+      <View style={{ width: 200, height: 48 }}>
+        <Button title="Under the fade" onPress={onPress} />
+        <EdgeFade side="right" />
+      </View>,
+    );
+    await fireEvent.press(screen.getByText('Under the fade'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(screen.toJSON())).toContain('"pointerEvents":"none"');
+  });
+
+  test('is hidden from screen readers and works on either side', async () => {
+    await render(
+      <View style={{ width: 200, height: 48 }}>
+        <EdgeFade side="left" width={20} />
+        <EdgeFade side="right" />
+      </View>,
+    );
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
 });

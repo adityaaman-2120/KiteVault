@@ -18,3 +18,4 @@ export { SegmentedControl } from './SegmentedControl';
 export { EyeButton } from './EyeButton';
 export { ScreenHeader } from './ScreenHeader';
 export { Callout } from './Callout';
+export { EdgeFade } from './EdgeFade';
