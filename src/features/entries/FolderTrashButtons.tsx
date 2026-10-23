@@ -68,7 +68,8 @@ function RoundButton({ label, onPress, children, color, badge = 0 }: ButtonProps
 }
 
 // Icons drawn with plain views, like the tab icons.
-function FolderIcon({ color }: { color: string }) {
+// A folder with a plus cut out of it (drawn in [plusColor]), so it reads as "new folder".
+function FolderIcon({ color, plusColor }: { color: string; plusColor: string }) {
   return (
     <View style={{ width: 20, height: 16 }}>
       <View
@@ -88,6 +89,29 @@ function FolderIcon({ color }: { color: string }) {
           height: 13,
           borderRadius: 3,
           backgroundColor: color,
+        }}
+      />
+      {/* The plus, centred on the body of the folder. */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 6,
+          top: 8.3,
+          width: 8,
+          height: 2.4,
+          borderRadius: 1,
+          backgroundColor: plusColor,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: 8.8,
+          top: 5.5,
+          width: 2.4,
+          height: 8,
+          borderRadius: 1,
+          backgroundColor: plusColor,
         }}
       />
     </View>
@@ -130,7 +154,7 @@ export function FolderTrashButtons({ trashCount, onFolders, onTrash }: Props) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
       <RoundButton label="Folders" onPress={onFolders} color={colors.accent}>
-        <FolderIcon color={colors.accent} />
+        <FolderIcon color={colors.accent} plusColor={colors.surface} />
       </RoundButton>
       <RoundButton
         label={trashCount > 0 ? `Trash (${trashCount})` : 'Trash'}
