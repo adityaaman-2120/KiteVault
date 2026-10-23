@@ -99,6 +99,28 @@ test('the folder row only appears when there are folders', async () => {
   expect(screen.queryByRole('button', { name: 'All folders' })).toBeNull();
 });
 
+test('Folders and Trash are always there, even with no folders, and stay while filtering', async () => {
+  showInStore(sample, []);
+  await render(<VaultListScreen />);
+  // No folder chips at all, but the way to make the first folder is still on screen.
+  expect(screen.queryByRole('button', { name: 'All folders' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Folders' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^Trash/ })).toBeTruthy();
+
+  // They do not move or disappear when the list is filtered.
+  await fireEvent.changeText(search(), 'octo');
+  expect(screen.getByRole('button', { name: 'Folders' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^Trash/ })).toBeTruthy();
+});
+
+test('with folders, the folder chips and the two buttons are all on screen together', async () => {
+  await render(<VaultListScreen />);
+  expect(screen.getByRole('button', { name: 'All folders' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Work' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Folders' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Trash (1)' })).toBeTruthy();
+});
+
 test('opening a row goes to the entry; the buttons go to add / folders / trash', async () => {
   await render(<VaultListScreen />);
   await fireEvent.press(screen.getByRole('button', { name: /^GitHub,/ }));

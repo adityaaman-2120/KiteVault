@@ -19,7 +19,7 @@ import {
 import { AuthenticatorList } from '@/features/totp/AuthenticatorList';
 
 import { AddEntrySheet } from './AddEntrySheet';
-import { HeaderActions } from './HeaderActions';
+import { FolderTrashButtons } from './FolderTrashButtons';
 import { EntryRow, ROW_GAP, rowHeight } from './EntryRow';
 import { ENTRY_TYPES, isTrashed } from './model';
 import { SearchBar } from './SearchBar';
@@ -158,14 +158,7 @@ export function VaultListScreen() {
                 </Text>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <HeaderActions
-                trashCount={trashCount}
-                onFolders={() => router.push('/folders')}
-                onTrash={() => router.push('/trash')}
-              />
-              <LockButton />
-            </View>
+            <LockButton />
           </View>
           <SearchBar
             value={query}
@@ -228,38 +221,55 @@ export function VaultListScreen() {
           </View>
         </ScrollView>
 
-        {folders && folders.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            style={{ flexGrow: 0, marginVertical: -5 }}
-          >
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Chip
-                tone="soft"
-                label="All folders"
-                selected={folderId === null}
-                onPress={() => setFolderId(null)}
-              />
-              <Chip
-                tone="soft"
-                label="No folder"
-                selected={folderId === ''}
-                onPress={() => setFolderId(folderId === '' ? null : '')}
-              />
-              {folders.map((f) => (
+        {/* The folder chips scroll on the left; Folders and Trash stay fixed at the right end. */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            marginVertical: -4,
+          }}
+        >
+          {folders && folders.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              style={{ flex: 1 }}
+            >
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 <Chip
                   tone="soft"
-                  key={f.id}
-                  label={f.name}
-                  selected={folderId === f.id}
-                  onPress={() => setFolderId(folderId === f.id ? null : f.id)}
+                  label="All folders"
+                  selected={folderId === null}
+                  onPress={() => setFolderId(null)}
                 />
-              ))}
-            </View>
-          </ScrollView>
-        ) : null}
+                <Chip
+                  tone="soft"
+                  label="No folder"
+                  selected={folderId === ''}
+                  onPress={() => setFolderId(folderId === '' ? null : '')}
+                />
+                {folders.map((f) => (
+                  <Chip
+                    tone="soft"
+                    key={f.id}
+                    label={f.name}
+                    selected={folderId === f.id}
+                    onPress={() => setFolderId(folderId === f.id ? null : f.id)}
+                  />
+                ))}
+              </View>
+            </ScrollView>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          <FolderTrashButtons
+            trashCount={trashCount}
+            onFolders={() => router.push('/folders')}
+            onTrash={() => router.push('/trash')}
+          />
+        </View>
 
         {__DEV__ ? (
           <View style={{ flexDirection: 'row', gap: spacing.md }}>

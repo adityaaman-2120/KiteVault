@@ -3,52 +3,61 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useTheme } from '@/theme';
 
+// The size of the round buttons (dp).
+const SIZE = 34;
+
 type ButtonProps = {
   label: string;
   onPress: () => void;
   children: ReactNode;
+  // The button's own colour: the icon and the badge, and a soft wash of it behind the icon.
+  color: string;
   // A small count on the corner, for example the number of items in the Trash.
   badge?: number;
-  // The button's own colour: a solid for the icon and badge, and a soft wash behind it.
-  tint: { solid: string; wash: string; washPressed: string };
 };
 
-// A round button for the dark header. The colours are light enough to read on it in both themes.
-function HeaderButton({ label, onPress, children, badge = 0, tint }: ButtonProps) {
-  const { typography } = useTheme();
+// A round button for the folder row. The wash is the button's colour at a low strength, so it
+// reads on the page in both themes.
+function RoundButton({ label, onPress, children, color, badge = 0 }: ButtonProps) {
+  const { colors, typography } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      hitSlop={4}
+      // The circle is small, but the area that reacts to a touch is still 44 dp.
+      hitSlop={5}
       onPress={onPress}
       style={({ pressed }) => ({
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: SIZE,
+        height: SIZE,
+        borderRadius: SIZE / 2,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: pressed ? tint.washPressed : tint.wash,
+        backgroundColor: `${color}${pressed ? '40' : '24'}`,
       })}
     >
-      {children}
+      {/* The drawn icons are made for a bigger circle, so they are scaled down with it. */}
+      <View style={{ transform: [{ scale: 0.85 }] }}>{children}</View>
       {badge > 0 ? (
         <View
           style={{
             position: 'absolute',
             top: -3,
             right: -3,
-            minWidth: 18,
-            height: 18,
-            paddingHorizontal: 4,
-            borderRadius: 9,
+            minWidth: 16,
+            height: 16,
+            paddingHorizontal: 3,
+            borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: tint.solid,
+            backgroundColor: color,
           }}
         >
           <Text
-            style={[typography.caption, { color: '#0E1630', fontWeight: '700', lineHeight: 14 }]}
+            style={[
+              typography.caption,
+              { color: colors.onPrimary, fontWeight: '700', fontSize: 11, lineHeight: 14 },
+            ]}
           >
             {badge > 99 ? '99+' : badge}
           </Text>
@@ -112,35 +121,25 @@ function TrashIcon({ color }: { color: string }) {
   );
 }
 
-const FOLDER_TINT = {
-  solid: '#FFB547',
-  wash: 'rgba(255,181,71,0.2)',
-  washPressed: 'rgba(255,181,71,0.36)',
-};
-const TRASH_TINT = {
-  solid: '#FF8A80',
-  wash: 'rgba(255,138,128,0.2)',
-  washPressed: 'rgba(255,138,128,0.36)',
-};
-
 type Props = { trashCount: number; onFolders: () => void; onTrash: () => void };
 
-// Folders (to manage them) and Trash (to restore things): actions, not filters, so they live in
-// the header instead of among the filter chips.
-export function HeaderActions({ trashCount, onFolders, onTrash }: Props) {
+// Folders (to manage them) and Trash (to restore things). They are actions, not filters, so they
+// sit fixed at the right end of the folder row while the folder chips scroll beside them.
+export function FolderTrashButtons({ trashCount, onFolders, onTrash }: Props) {
+  const { colors, spacing } = useTheme();
   return (
-    <>
-      <HeaderButton label="Folders" onPress={onFolders} tint={FOLDER_TINT}>
-        <FolderIcon color={FOLDER_TINT.solid} />
-      </HeaderButton>
-      <HeaderButton
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      <RoundButton label="Folders" onPress={onFolders} color={colors.accent}>
+        <FolderIcon color={colors.accent} />
+      </RoundButton>
+      <RoundButton
         label={trashCount > 0 ? `Trash (${trashCount})` : 'Trash'}
         onPress={onTrash}
+        color={colors.danger}
         badge={trashCount}
-        tint={TRASH_TINT}
       >
-        <TrashIcon color={TRASH_TINT.solid} />
-      </HeaderButton>
-    </>
+        <TrashIcon color={colors.danger} />
+      </RoundButton>
+    </View>
   );
 }
