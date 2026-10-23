@@ -202,6 +202,21 @@ Full list: `docs/AUTOFILL_TESTING.md`. Minimum for every release:
 - [ ] **14.8** A login waiting to be saved disappears after 10 minutes and after Erase vault.
 - [ ] **14.9** Five autofills in a row: the sixth says to unlock KiteVault first (master password).
 - [ ] **14.10** Autofill on KiteVault's own screens never offers anything (the master password field).
+- [ ] **14.11 Strong password, sign-up page** (Chrome, https site with a "new password" box, for example a sign-up form): tapping the password box shows **"Suggest strong password (KiteVault)"** in the drop-down or keyboard strip. Nothing is filled and no password is shown yet. The suggestion does **not** appear on a sign-in page.
+- [ ] **14.12** Tap it: a white sheet "Use strong password?" shows a 20-character password and the site's name. **Generate another** gives a different one. **Create my own** closes the sheet and fills nothing. The sheet cannot be screenshotted.
+- [ ] **14.13** **Use password** fills the password box **and** the "confirm password" box with the same text, and nothing else (not the e-mail box). Submit the form: Android asks **Save to KiteVault?**; KiteVault opens, asks to unlock, and the review screen has the same password and the user name you typed. Saved once, not twice.
+- [ ] **14.14 Not lost:** use a suggested password, then do **not** submit the form (or let the site reject it). Open KiteVault within 10 minutes and unlock: the password is waiting to be saved. After 10 minutes it is gone.
+- [ ] **14.14b Unmarked sign-up page** (a page that does not mark its box as a new password, so KiteVault treats it like a sign-in): tap the password box, unlock with the fingerprint: the screen says "No saved login for <site>" and has a **Suggest a strong password** button. It shows the same sheet; **Use password** fills the password box (not the e-mail box); submit and **Save to KiteVault?** keeps it; if you do not submit, it waits 10 minutes in KiteVault as in 14.14.
+- [ ] **14.17 Look of the sheet** (do this on the unlock, "No saved login", chooser, search, "fill anyway" warning and the strong-password screens): the sheet is night blue with rounded top corners and slides up; the kite and "KiteVault" are at the top; a pill under them shows the site (green lock for a website, amber lock for an app); buttons are large and easy to hit; text is readable in a bright room; it clears the navigation bar and the keyboard (search); tapping the dimmed area above the sheet closes it and fills nothing; with Android's animations turned off nothing breaks. In the autofill list the row shows the kite, "Unlock KiteVault to fill" and a smaller second line, in both the light and the dark theme of the drop-down.
+- [ ] **14.18 Sign-up page that does not mark its boxes, with a "confirm password" box** (two password boxes): tap the password box. **"Suggest strong password"** is offered straight away, with **no** fingerprint. **Use password** fills **both** boxes. It still works with biometric unlock off.
+- [ ] **14.19 Sign-up page with one unmarked password box** (no confirm box): it looks like a sign-in, so you get "Unlock KiteVault to fill", then the fingerprint, then "No saved login" with **Suggest a strong password**. Cancel the fingerprint instead: a sheet offers **Use fingerprint** or **Make a strong password** (no dead end).
+- [ ] **14.20 Biometric unlock off** on such a page: the message says to turn it on, and **Make a strong password instead** is still there.
+- [ ] **14.21 Options:** on the strong-password sheet choose **12**: the password is 12 characters. Turn **Symbols** off: only letters and digits. Close KiteVault's sheet and open it on another site: the last choice is still selected. Neither choice ever puts a site or password in storage.
+- [ ] **14.22 Change-password page** (old password, new password, confirm): tap the **old** box: "Unlock KiteVault to fill" and the old password fills (never a strong password there). Tap the **new** box: "Suggest strong password", and both new boxes are filled. After you submit, KiteVault opens and offers **Update password** for your login on that site (one login: offered directly; several: it asks which one you changed).
+- [ ] **14.23 Sign-in over two pages** (for example Google or Microsoft): on the user-name page KiteVault offers to fill the **user name only**; on the password page it fills the password. A newsletter or contact form with an e-mail box shows nothing.
+- [ ] **14.24 Nothing is guessed from one box:** a normal sign-in page with a single password box still fills the saved login, and never shows "Suggest strong password" first.
+- [ ] **14.15** On a plain **http** page, in an in-app browser (14.6) and on a page that mixes sites, no strong-password suggestion appears.
+- [ ] **14.16** The suggestion works with biometric unlock **off** (it does not need a fingerprint), and saving the password afterwards still needs the master password.
 
 ## 15. Phone conditions
 
@@ -284,4 +299,4 @@ Needed to back the claim "no analytics, no tracking". See `docs/SECURITY_REVIEW.
 | 15 Phone conditions          |                                |       |
 | 16 Network capture           |                                |       |
 
-**Do not release** if any of these failed: 2.5, 4.2, 5.2, 6.4, 6.7, 7.1 to 7.3, 10.2, 10.3, 11.6, 11.10, 14.2 to 14.4, 15.3, or anything in section 16.
+**Do not release** if any of these failed: 2.5, 4.2, 5.2, 6.4, 6.7, 7.1 to 7.3, 10.2, 10.3, 11.6, 11.10, 14.2 to 14.4, 14.13, 14.15, 14.22, 14.24, 15.3, or anything in section 16.

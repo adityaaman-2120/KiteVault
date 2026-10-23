@@ -2,7 +2,17 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
-import { Button, Card, Chip, EyeButton, ScreenContainer, TextField } from '@/components';
+import {
+  Button,
+  Callout,
+  Card,
+  CardGroup,
+  Chip,
+  EyeButton,
+  LetterAvatar,
+  ScreenContainer,
+  TextField,
+} from '@/components';
 import { describeSaveError } from '@/features/entries/entryActions';
 import { useForceScreenProtection } from '@/features/privacy/screenProtection';
 import { discardPendingSave, getPendingSaves, type PendingSave } from '@/native/keystore/autofill';
@@ -10,7 +20,7 @@ import { useTheme } from '@/theme';
 import { useVaultStore, type Entry } from '@/vault';
 
 import { saveAsNewLogin, updateLoginPassword } from './saveActions';
-import { findExistingLogins, originText, suggestedTitle } from './saveMatching';
+import { findExistingLogins, findLoginsAtOrigin, originText, suggestedTitle } from './saveMatching';
 
 export const SAVE_WARNING =
   'Only save this if you just signed in or signed up there yourself. KiteVault never saves anything without this confirmation.';
@@ -103,11 +113,25 @@ function PendingSaveCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A page with no user-name box (a change-password page) gives us no account to match, so the
+  // logins for that place are the candidates, and with several of them the person chooses.
+  const noUserName = save.username.trim() === '';
   const existing = useMemo(
-    () => findExistingLogins(entries, save.origin, save.username),
-    [entries, save.origin, save.username],
+    () =>
+      noUserName
+        ? findLoginsAtOrigin(entries, save.origin)
+        : findExistingLogins(entries, save.origin, save.username),
+    [entries, save.origin, save.username, noUserName],
   );
-  const target = existing[0] ?? null;
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const samePasswordLogin = noUserName
+    ? (existing.find((e) => e.password === save.password) ?? null)
+    : null;
+  const chosen = existing.find((e) => e.id === chosenId) ?? null;
+  const target = noUserName
+    ? (samePasswordLogin ?? chosen ?? (existing.length === 1 ? existing[0]! : null))
+    : (existing[0] ?? null);
+  const needsChoice = noUserName && existing.length > 1 && target === null;
   const alreadySaved = target !== null && target.password === save.password;
   const effectiveMode: Mode = mode ?? (target ? 'update' : 'new');
 
@@ -138,34 +162,53 @@ function PendingSaveCard({
 
   return (
     <ScreenContainer scroll>
-      <Card>
+      {/* Who it is for: the site or app, big, so it is the first thing read. */}
+      <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm }}>
+        <LetterAvatar title={suggestedTitle(save.origin)} size={64} />
         <Text style={[typography.label, { color: colors.textMuted }]}>Save to KiteVault?</Text>
         <Text
           accessibilityLabel={`Saved for ${originText(save.origin)}`}
-          style={{ color: colors.text, fontSize: 24, fontWeight: '700' }}
+          style={[typography.title, { color: colors.text, textAlign: 'center' }]}
         >
           {originText(save.origin)}
         </Text>
-        <Text style={[typography.body, { color: colors.text }]}>
-          User name: {save.username || '(none)'}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <Text style={[typography.body, { color: colors.text }]}>
-            Password: {shown ? save.password : '••••••••••'}
-          </Text>
-          <EyeButton
-            revealed={shown}
-            accessibilityLabel={shown ? 'Hide password' : 'Show password'}
-            onPress={() => setShown((v) => !v)}
-          />
-        </View>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>{SAVE_WARNING}</Text>
         {waitingAfter > 0 ? (
           <Text style={[typography.caption, { color: colors.textMuted }]}>
             {`${waitingAfter} more waiting after this one.`}
           </Text>
         ) : null}
-      </Card>
+      </View>
+
+      <CardGroup>
+        <Card>
+          <Text style={[typography.body, { color: colors.text }]}>
+            User name: {save.username || '(none)'}
+          </Text>
+        </Card>
+        <Card>
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text
+              style={[
+                typography.body,
+                { color: colors.text, flex: 1, fontFamily: shown ? 'monospace' : undefined },
+              ]}
+            >
+              Password: {shown ? save.password : '••••••••••'}
+            </Text>
+            <EyeButton
+              revealed={shown}
+              accessibilityLabel={shown ? 'Hide password' : 'Show password'}
+              onPress={() => setShown((v) => !v)}
+            />
+          </View>
+        </Card>
+      </CardGroup>
+
+      <Callout tone="warning" title="Check before you save">
+        {SAVE_WARNING}
+      </Callout>
 
       {alreadySaved ? (
         <Card>
@@ -177,17 +220,49 @@ function PendingSaveCard({
         </Card>
       ) : (
         <>
+          {needsChoice ? (
+            <Card>
+              <Text style={[typography.heading, { color: colors.text }]}>
+                Which login did you change?
+              </Text>
+              <Text style={[typography.body, { color: colors.textMuted }]}>
+                That page showed no user name, and you have more than one login for this site.
+                Choose the one whose password you changed, or save this as a new login.
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {existing.map((login) => (
+                  <Chip
+                    key={login.id}
+                    label={login.username ? `${login.title} (${login.username})` : login.title}
+                    selected={false}
+                    onPress={() => {
+                      setChosenId(login.id);
+                      setMode('update');
+                    }}
+                  />
+                ))}
+                <Chip
+                  label="Save as new login"
+                  selected={effectiveMode === 'new'}
+                  onPress={() => setMode('new')}
+                />
+              </View>
+            </Card>
+          ) : null}
+
           {target ? (
             <Card>
               <Text style={[typography.heading, { color: colors.text }]}>
                 You already have a login for this
               </Text>
               <Text style={[typography.body, { color: colors.textMuted }]}>
-                {`"${target.title}" is saved with this user name but a different password.${
-                  existing.length > 1
-                    ? ` (${existing.length} logins match; the newest is used.)`
-                    : ''
-                }`}
+                {noUserName
+                  ? `"${target.title}" is saved for this site. That page showed no user name, so this looks like a change of its password.`
+                  : `"${target.title}" is saved with this user name but a different password.${
+                      existing.length > 1
+                        ? ` (${existing.length} logins match; the newest is used.)`
+                        : ''
+                    }`}
               </Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 <Chip

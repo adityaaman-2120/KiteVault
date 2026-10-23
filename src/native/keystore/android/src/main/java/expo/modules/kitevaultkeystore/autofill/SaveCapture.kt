@@ -41,21 +41,47 @@ internal object SaveCapture {
 
     val result = RequestOrigin.decide(screen, form, fromTrustedBrowser)
     val origin = (result as? OriginResult.Known)?.origin ?: return null
-    return when (origin) {
+    return noteFor(origin, username, password, appLabel, appCertificates)
+  }
+
+  /**
+   * The note kept for a password that KiteVault suggested and the person chose, until the sign-up
+   * is saved or ten minutes pass. There is no user name yet (it is not typed). When the sign-up
+   * is submitted, the normal save for the same password replaces this note.
+   */
+  fun forSuggestion(
+    origin: Origin,
+    password: String,
+    appLabel: (String) -> String?,
+    appCertificates: (String) -> AppCertificates?,
+  ): NewSave? {
+    if (password.isEmpty() || password.length > MAX_PASSWORD) return null
+    return noteFor(origin, "", password, appLabel, appCertificates)
+  }
+
+  private fun noteFor(
+    origin: Origin,
+    username: String,
+    password: String,
+    appLabel: (String) -> String?,
+    appCertificates: (String) -> AppCertificates?,
+  ): NewSave? =
+    when (origin) {
       is Origin.Web -> NewSave(SaveKind.WEB, username, password, origin.host, null, null, null)
       is Origin.App -> {
         // Without the app's certificate a later fill could not be matched safely: do not save.
-        val cert = appCertificates(origin.packageName)?.current?.sorted()?.firstOrNull() ?: return null
-        NewSave(
-          SaveKind.APP,
-          username,
-          password,
-          null,
-          origin.packageName,
-          appLabel(origin.packageName) ?: origin.packageName,
-          cert,
-        )
+        val cert = appCertificates(origin.packageName)?.current?.sorted()?.firstOrNull()
+        if (cert == null) null
+        else
+          NewSave(
+            SaveKind.APP,
+            username,
+            password,
+            null,
+            origin.packageName,
+            appLabel(origin.packageName) ?: origin.packageName,
+            cert,
+          )
       }
     }
-  }
 }

@@ -2,26 +2,17 @@ package expo.modules.kitevaultkeystore.autofill
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.service.autofill.Dataset
 import android.service.autofill.FillResponse
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.autofill.AutofillManager
 import android.view.autofill.AutofillValue
-import android.widget.Button
-import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RemoteViews
-import android.widget.ScrollView
-import android.widget.TextView
 import androidx.fragment.app.FragmentActivity
 import expo.modules.kitevaultkeystore.ErrorCode
 import expo.modules.kitevaultkeystore.R
@@ -42,10 +33,18 @@ import java.util.concurrent.Executors
  *     "Search my vault" and pick a login by hand, after a clear warning that it does not belong
  *     to this site or app.
  *  5. It gives the chosen user name and password to Android, which puts them into the two boxes
- *     (and only those two). Then it closes.
+ *     (and only those two). Then it closes. On the first page of a two-page sign-in there is only
+ *     a user-name box, and only the user name is filled.
+ *
+ * A page that does not say it is a sign-up looks like a sign-in, so a person creating an account
+ * ends up here. So that nobody is stuck: if the fingerprint is cancelled or not available, and
+ * when no login matches, KiteVault can make a strong password instead (see [showStrongPassword]),
+ * which needs no fingerprint and reads nothing from the vault.
  *
  * It cannot be started by other apps (it is not exported), hides itself from screenshots and the
  * recent-apps list, ignores taps while another window covers it, and closes if the user leaves it.
+ *
+ * How it looks is [SheetUi]'s job; this class keeps the logic and the security settings.
  */
 class AutofillAuthActivity : FragmentActivity() {
   private var fill: PendingFill? = null
@@ -56,7 +55,14 @@ class AutofillAuthActivity : FragmentActivity() {
   private var waitingForBiometric = false
   private var done = false
 
-  private lateinit var card: LinearLayout
+  // A strong password made on request (see [showStrongPassword]); empty when there is none.
+  private var suggested = ""
+  private var options = PasswordOptions()
+
+  // The list of logins on the search screen, so typing can redraw it; null on other screens.
+  private var searchColumn: LinearLayout? = null
+
+  private val ui by lazy(LazyThreadSafetyMode.NONE) { SheetUi(this) }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     // No screenshots, no recent-apps preview of this screen.
@@ -69,7 +75,8 @@ class AutofillAuthActivity : FragmentActivity() {
       return
     }
     fill = request
-    buildShell()
+    options = GeneratorPrefs.load(this)
+    buildShell(request)
 
     val origin = request.origin
     if (origin is OriginResult.Refused && origin.reason == Refusal.MIXED_DOMAINS) {
@@ -83,6 +90,10 @@ class AutofillAuthActivity : FragmentActivity() {
     startUnlock()
   }
 
+  /** Whether a strong password may be offered here: a known site or app, and a plain sign-in page. */
+  private fun canSuggest(request: PendingFill): Boolean =
+    request.allowSuggest && request.passwordId != null && request.origin is OriginResult.Known
+
   // --- Step 2: the fingerprint / face check ---------------------------------------------------
 
   private fun startUnlock() {
@@ -92,6 +103,8 @@ class AutofillAuthActivity : FragmentActivity() {
         "${request.displayName} (${request.packageName})"
       } else request.displayName
     waitingForBiometric = true
+    ui.reset()
+    ui.loading("Unlocking KiteVault…")
     VaultKeyUnlocker(this).unlock(
       this,
       title = "Fill a login for $who",
@@ -107,31 +120,65 @@ class AutofillAuthActivity : FragmentActivity() {
   }
 
   private fun showUnlockFailure(code: String) {
+    val request = fill ?: return
     when (code) {
-      ErrorCode.USER_CANCELED -> cancel()
+      // Cancelling the fingerprint is how someone on a sign-up page says "I do not have a login
+      // here". Do not just close: offer the way forward. Anywhere else, closing is right.
+      ErrorCode.USER_CANCELED -> if (canSuggest(request)) showChoice(request) else cancel()
       ErrorCode.REAUTH_REQUIRED ->
-        showMessage(
+        showProblem(
+          request,
           "Unlock KiteVault first",
           "For your safety, KiteVault needs your master password again. Open KiteVault, unlock it with your master password, then try again.",
         )
       ErrorCode.NOT_ENABLED ->
-        showMessage(
+        showProblem(
+          request,
           "Turn on biometric unlock",
-          "Autofill needs fingerprint or face unlock. Open KiteVault, go to Settings and turn on biometric unlock.",
+          "Filling a saved login needs fingerprint or face unlock. Open KiteVault, go to Settings and turn on biometric unlock.",
         )
       ErrorCode.KEY_INVALIDATED ->
-        showMessage(
+        showProblem(
+          request,
           "Unlock again in KiteVault",
           "Your fingerprints or face data changed, so KiteVault turned biometric unlock off. Open KiteVault and turn it on again.",
         )
-      else -> showMessage("Could not unlock", "KiteVault could not use your fingerprint or face. Try again.")
+      else -> showProblem(request, "Could not unlock", "KiteVault could not use your fingerprint or face. Try again.")
     }
+  }
+
+  /** The fingerprint did not work. A strong password does not need it, so it is still offered. */
+  private fun showProblem(request: PendingFill, heading: String, text: String) {
+    ui.reset()
+    ui.message(R.drawable.kitevault_ic_warning, AutofillStyle.AMBER, heading, text)
+    if (canSuggest(request)) {
+      ui.button("Make a strong password instead", ButtonKind.PRIMARY) {
+        showStrongPassword(request) { showProblem(request, heading, text) }
+      }
+      ui.button("Close", ButtonKind.TEXT) { cancel() }
+    } else {
+      ui.button("Close", ButtonKind.PRIMARY) { cancel() }
+    }
+  }
+
+  /** The fingerprint was cancelled: fill a saved login, or make a strong password for a new account. */
+  private fun showChoice(request: PendingFill) {
+    ui.reset()
+    ui.title("Fill with KiteVault")
+    ui.body("Use your fingerprint to fill a saved login, or let KiteVault make a strong password for a new account.")
+    ui.button("Use fingerprint", ButtonKind.PRIMARY) { startUnlock() }
+    ui.button("Make a strong password", ButtonKind.SECONDARY) {
+      showStrongPassword(request) { showChoice(request) }
+    }
+    ui.button("Close", ButtonKind.TEXT) { cancel() }
   }
 
   // --- Step 3: read the vault and find matches ------------------------------------------------
 
   private fun openVault(vaultKey: ByteArray) {
     val request = fill ?: return
+    ui.reset()
+    ui.loading("Opening your vault…")
     worker.execute {
       var plain: ByteArray? = null
       try {
@@ -148,9 +195,11 @@ class AutofillAuthActivity : FragmentActivity() {
             }
             is OriginResult.Refused -> emptyList() // e.g. http: never matched automatically
           }
+        // The user-name-only page can only use a login that has a user name.
+        val usable = if (request.passwordId == null) matched.filter { it.username.isNotEmpty() } else matched
         runOnUiThread {
           allLogins = logins
-          matches = matched
+          matches = usable
           onVaultOpened()
         }
       } catch (e: VaultReadException) {
@@ -193,20 +242,23 @@ class AutofillAuthActivity : FragmentActivity() {
   }
 
   private fun showChooser(request: PendingFill) {
-    reset()
-    title("Choose a login for ${request.displayName}")
-    for (login in matches) row(login) { complete(login) }
+    ui.reset()
+    ui.title("Choose a login")
+    ui.body("More than one saved login fits this site. Pick the one to fill.")
+    for (login in matches) ui.addRow(ui.loginRow(login.title, login.username) { complete(login) })
     secondaryButtons(request)
   }
 
   private fun showNoMatch(request: PendingFill) {
-    reset()
+    ui.reset()
     val origin = request.origin
-    title("No saved login for ${request.displayName}")
-    body(
+    ui.title("No saved login")
+    ui.body(
       when {
         origin is OriginResult.Refused && origin.reason == Refusal.NOT_HTTPS ->
           "This page is not using a secure (https) connection, so KiteVault will not suggest a login automatically."
+        canSuggest(request) ->
+          "KiteVault has no login saved for this site or app. Signing up? KiteVault can make a strong password for you."
         else -> "KiteVault has no login saved for this site or app."
       }
     )
@@ -214,72 +266,137 @@ class AutofillAuthActivity : FragmentActivity() {
   }
 
   private fun secondaryButtons(request: PendingFill) {
-    button("Search my vault", primary = false) { showSearch(request) }
-    button("Cancel", primary = false) { cancel() }
+    // A page that does not say its box is for a NEW password looks like a sign-in page, so this
+    // is where a person on a sign-up page ends up. Offered only when we know exactly who is
+    // asking, and not on a change-password page (where the tapped box holds the old password).
+    if (canSuggest(request)) {
+      ui.button("Suggest a strong password", ButtonKind.PRIMARY) {
+        showStrongPassword(request) { onVaultOpened() }
+      }
+    }
+    ui.button("Search my vault", ButtonKind.SECONDARY) { showSearch(request) }
+    ui.button("Cancel", ButtonKind.TEXT) { cancel() }
+  }
+
+  /**
+   * "Use strong password?": a random password for a sign-up page that the service could not tell
+   * from a sign-in page. It fills the password box only. Nothing is read from the vault for it,
+   * so it also works when the fingerprint did not. [back] goes to the screen it was opened from.
+   */
+  private fun showStrongPassword(request: PendingFill, back: () -> Unit) {
+    if (suggested.isEmpty()) suggested = PasswordGenerator.generate(options)
+    ui.reset()
+    ui.title("Use strong password?")
+    ui.body(
+      "KiteVault made this password for ${request.displayName}. You won't need to remember it: " +
+        "after you sign up, KiteVault will offer to save it."
+    )
+    val box = ui.passwordBox(suggested)
+    val summary = ui.passwordSummary(suggested)
+    ui.passwordOptions(options) { chosen ->
+      options = chosen
+      GeneratorPrefs.save(this, chosen)
+      suggested = PasswordGenerator.generate(chosen)
+      ui.setPassword(box, suggested)
+      summary.text = AutofillStyle.passwordSummary(suggested)
+    }
+    ui.button("Use password", ButtonKind.PRIMARY) { useSuggested(request) }
+    ui.button("Generate another", ButtonKind.SECONDARY) {
+      suggested = PasswordGenerator.generate(options)
+      ui.setPassword(box, suggested)
+      summary.text = AutofillStyle.passwordSummary(suggested)
+    }
+    ui.button("Back", ButtonKind.TEXT) {
+      suggested = ""
+      back()
+    }
+  }
+
+  private fun useSuggested(request: PendingFill) {
+    val password = suggested
+    if (password.isEmpty() || done) return
+    // If the page is never submitted the password would exist nowhere else, so a note of it waits,
+    // encrypted, for ten minutes. If the sign-up goes through, Android's own "Save?" replaces it.
+    val origin = (request.origin as? OriginResult.Known)?.origin
+    if (origin != null) {
+      SaveCapture.forSuggestion(
+        origin,
+        password,
+        appLabel = { AppIdentity.label(this, it) },
+        appCertificates = { AppIdentity.certificates(this, it) },
+      )?.let { note -> runCatching { PendingSaves.store(this).add(note) } }
+    }
+    fillWith(username = "", password = password)
   }
 
   /** Lets the user pick any login by hand. Never suggested automatically; always warned. */
   private fun showSearch(request: PendingFill) {
-    reset()
-    title("Search my vault")
-    val input = EditText(this).apply {
-      hint = "Search by name or user name"
-      setSingleLine()
-      setTextColor(Color.BLACK)
-      setHintTextColor(Color.GRAY)
-    }
-    card.addView(input)
-    val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-    card.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(MATCH, dp(260)))
-
-    fun refresh(query: String) {
-      list.removeAllViews()
-      val q = query.trim().lowercase()
-      val shown =
-        allLogins
-          .filter { q.isEmpty() || it.title.lowercase().contains(q) || it.username.lowercase().contains(q) }
-          .sortedBy { it.title.lowercase() }
-          .take(50)
-      for (login in shown) {
-        list.addView(rowView(login) { confirmManual(request, login) })
-      }
-      if (shown.isEmpty()) list.addView(TextView(this).apply { text = "No logins found."; setTextColor(Color.DKGRAY) })
-    }
-    input.addTextChangedListener(object : TextWatcher {
-      override fun afterTextChanged(s: Editable?) = refresh(s?.toString().orEmpty())
+    ui.reset()
+    ui.title("Search my vault")
+    val watcher = object : TextWatcher {
+      override fun afterTextChanged(s: Editable?) = refresh(s?.toString().orEmpty(), request)
       override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
       override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-    })
-    refresh("")
-    button("Back", primary = false) { onVaultOpened() }
+    }
+    ui.searchField("Search by name or user name", watcher)
+    searchColumn = ui.list()
+    refresh("", request)
+    ui.button("Back", ButtonKind.TEXT) { onVaultOpened() }
+  }
+
+  private fun refresh(query: String, request: PendingFill) {
+    val list = searchColumn ?: return
+    list.removeAllViews()
+    val q = query.trim().lowercase()
+    val shown =
+      allLogins
+        .filter { q.isEmpty() || it.title.lowercase().contains(q) || it.username.lowercase().contains(q) }
+        .sortedBy { it.title.lowercase() }
+        .take(50)
+    for (login in shown) {
+      val row = ui.loginRow(login.title, login.username) { confirmManual(request, login) }
+      list.addView(row, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = ui.dp(10) })
+    }
+    if (shown.isEmpty()) list.addView(ui.emptyLine("No logins found."))
   }
 
   /** A login that does NOT match this site or app: explain, and ask for a second tap. */
   private fun confirmManual(request: PendingFill, login: LoginRecord) {
-    reset()
-    title("This login is not saved for ${request.displayName}")
-    body(
+    searchColumn = null
+    ui.reset()
+    ui.message(
+      R.drawable.kitevault_ic_warning,
+      AutofillStyle.CORAL,
+      "This login is not saved for ${request.displayName}",
       "You picked \"${login.title}\", which is saved for:\n${
         login.urls.joinToString("\n").ifEmpty { "(no website)" }
       }\n\nYou are on:\n${request.displayName}\n\nIf these are not the same, a fake site or app may be trying to steal this password."
     )
-    button("Fill anyway", primary = false) { complete(login) }
-    button("Cancel", primary = true) { cancel() }
+    ui.button("Cancel", ButtonKind.PRIMARY) { cancel() }
+    ui.button("Fill anyway", ButtonKind.DANGER) { complete(login) }
   }
 
   // --- Step 5: hand the login to Android --------------------------------------------------------
 
-  private fun complete(login: LoginRecord) {
+  private fun complete(login: LoginRecord) = fillWith(login.username, login.password)
+
+  private fun fillWith(username: String, password: String) {
     val request = fill ?: return
     if (done) return
+    // The user-name-only page has nothing else to fill, so a login without a user name is no help.
+    if (request.passwordId == null && username.isEmpty()) {
+      showMessage("No user name", "This login has no user name to fill. Pick another one, or type it in yourself.")
+      return
+    }
     done = true
-    // Only the two boxes we found are given a value. The presentation is required by the API but
-    // never shown, because the answer is filled in straight away.
+    // Only the boxes we found are given a value (the user name only when there is one). The
+    // presentation is required by the API but never shown, because the answer is filled in
+    // straight away.
     @Suppress("DEPRECATION")
     val dataset = Dataset.Builder(RemoteViews(packageName, R.layout.kitevault_autofill_locked_item))
-    dataset.setValue(request.passwordId, AutofillValue.forText(login.password))
+    request.passwordId?.let { dataset.setValue(it, AutofillValue.forText(password)) }
     request.usernameId?.let {
-      if (login.username.isNotEmpty()) dataset.setValue(it, AutofillValue.forText(login.username))
+      if (username.isNotEmpty()) dataset.setValue(it, AutofillValue.forText(username))
     }
     val response =
       FillResponse.Builder()
@@ -302,6 +419,8 @@ class AutofillAuthActivity : FragmentActivity() {
   private fun clear() {
     matches = emptyList()
     allLogins = emptyList()
+    suggested = ""
+    searchColumn = null
   }
 
   // Leaving the screen (home button, another app) ends the request.
@@ -316,82 +435,34 @@ class AutofillAuthActivity : FragmentActivity() {
     super.onDestroy()
   }
 
-  // --- A tiny screen built in code (no layout files, nothing to inflate or leak) ---------------
+  // --- The frame ----------------------------------------------------------------------------------
 
-  private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
-
-  private fun buildShell() {
-    val root = FrameLayout(this)
+  private fun buildShell(request: PendingFill) {
+    // Tapping the dimmed area above the sheet closes it without filling anything.
+    ui.install { cancel() }
     // Ignore taps while another window (an overlay) covers this one: stops tap-jacking.
-    root.filterTouchesWhenObscured = true
-    card = LinearLayout(this).apply {
-      orientation = LinearLayout.VERTICAL
-      setPadding(dp(20), dp(20), dp(20), dp(20))
-      background = GradientDrawable().apply {
-        setColor(Color.WHITE)
-        cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
-      }
-      filterTouchesWhenObscured = true
-    }
-    root.addView(card, FrameLayout.LayoutParams(MATCH, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
-    setContentView(root)
-    title("KiteVault")
-    body("Unlocking…")
-  }
+    ui.root.filterTouchesWhenObscured = true
+    ui.sheet.filterTouchesWhenObscured = true
 
-  private fun reset() {
-    card.removeAllViews()
+    // The pill says who is asking. A web address a trusted browser reported over https is shown
+    // with a green lock; an app's name is only a label, so it gets an amber one.
+    val origin = request.origin
+    val verified = origin is OriginResult.Known && origin.origin is Origin.Web
+    ui.showContext(request.displayName, verified)
+
+    ui.reset()
+    ui.loading("Unlocking KiteVault…")
   }
 
   private fun showMessage(heading: String, text: String) {
-    reset()
-    title(heading)
-    body(text)
-    button("Close", primary = true) { cancel() }
+    ui.reset()
+    ui.message(R.drawable.kitevault_ic_warning, AutofillStyle.AMBER, heading, text)
+    ui.button("Close", ButtonKind.PRIMARY) { cancel() }
   }
-
-  private fun title(text: String) {
-    card.addView(TextView(this).apply {
-      this.text = text
-      textSize = 18f
-      setTextColor(Color.BLACK)
-      setPadding(0, 0, 0, dp(8))
-    })
-  }
-
-  private fun body(text: String) {
-    card.addView(TextView(this).apply {
-      this.text = text
-      textSize = 15f
-      setTextColor(Color.DKGRAY)
-      setPadding(0, 0, 0, dp(12))
-    })
-  }
-
-  private fun button(text: String, primary: Boolean, onClick: () -> Unit) {
-    card.addView(Button(this).apply {
-      this.text = text
-      isAllCaps = false
-      if (primary) {
-        setBackgroundColor(Color.parseColor("#2F6F8F"))
-        setTextColor(Color.WHITE)
-      }
-      setOnClickListener { onClick() }
-    })
-  }
-
-  private fun rowView(login: LoginRecord, onClick: () -> Unit): View =
-    Button(this).apply {
-      text = if (login.username.isEmpty()) login.title else "${login.title}\n${login.username}"
-      isAllCaps = false
-      gravity = Gravity.START or Gravity.CENTER_VERTICAL
-      setOnClickListener { onClick() }
-    }
-
-  private fun row(login: LoginRecord, onClick: () -> Unit) = card.addView(rowView(login, onClick))
 
   companion object {
     const val EXTRA_TICKET = "expo.modules.kitevaultkeystore.autofill.TICKET"
     private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+    private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
   }
 }

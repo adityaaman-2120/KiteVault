@@ -7,6 +7,8 @@
 //       - meta-data android.autofill -> @xml/kitevault_autofill_service (its small settings file).
 //   * <activity> AutofillAuthActivity     - the unlock-and-choose screen. NOT exported, so no other
 //       app can start it; hidden from the recent-apps list.
+//   * <activity> AutofillSuggestActivity  - the "Use strong password?" sheet on sign-up pages. The
+//       same protections as the unlock screen.
 //   * <queries> for launcher apps          - since Android 11 an app cannot see which other apps
 //       are installed unless it asks. Autofill must read the signing certificate of the app it is
 //       filling (to tell a real app from a copy), so it asks to see apps that have a launcher icon.
@@ -23,6 +25,7 @@ const { createRunOncePlugin, withAndroidManifest } = require('expo/config-plugin
 const PACKAGE = 'expo.modules.kitevaultkeystore.autofill';
 const SERVICE = `${PACKAGE}.KiteVaultAutofillService`;
 const ACTIVITY = `${PACKAGE}.AutofillAuthActivity`;
+const SUGGEST_ACTIVITY = `${PACKAGE}.AutofillSuggestActivity`;
 
 const CONFIG_CHANGES =
   'orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode';
@@ -47,9 +50,9 @@ const serviceElement = () => ({
   ],
 });
 
-const activityElement = () => ({
+const activityElement = (name) => ({
   $: {
-    'android:name': ACTIVITY,
+    'android:name': name,
     'android:exported': 'false',
     'android:theme': '@style/KiteVaultAutofillTheme',
     'android:excludeFromRecents': 'true',
@@ -85,7 +88,11 @@ const hasLauncherQuery = (queries) =>
 function applyAutofillManifest(manifest) {
   const application = manifest.application[0];
   application.service = [...withoutName(application.service, SERVICE), serviceElement()];
-  application.activity = [...withoutName(application.activity, ACTIVITY), activityElement()];
+  application.activity = [
+    ...withoutName(withoutName(application.activity, ACTIVITY), SUGGEST_ACTIVITY),
+    activityElement(ACTIVITY),
+    activityElement(SUGGEST_ACTIVITY),
+  ];
   if (!hasLauncherQuery(manifest.queries)) {
     manifest.queries = [...(manifest.queries ?? []), launcherQuery()];
   }
@@ -105,3 +112,4 @@ module.exports = plugin;
 module.exports.applyAutofillManifest = applyAutofillManifest;
 module.exports.SERVICE = SERVICE;
 module.exports.ACTIVITY = ACTIVITY;
+module.exports.SUGGEST_ACTIVITY = SUGGEST_ACTIVITY;

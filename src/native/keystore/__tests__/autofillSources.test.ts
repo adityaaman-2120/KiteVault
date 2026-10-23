@@ -68,6 +68,93 @@ test('the autofill screen is protected against screenshots and overlay taps', ()
   expect(activity).toContain('filterTouchesWhenObscured');
 });
 
+test('the strong-password screen is protected like the unlock screen', () => {
+  const activity = code(path.join(MAIN, 'autofill/AutofillSuggestActivity.kt'));
+  expect(activity).toContain('FLAG_SECURE');
+  expect(activity).toContain('filterTouchesWhenObscured');
+  // It hands Android the new password in exactly one place, and puts nothing else in an intent.
+  expect(activity.match(/putExtra\(/g)).toHaveLength(1);
+  expect(activity).toContain('EXTRA_AUTHENTICATION_RESULT');
+});
+
+test('the "no saved login" screen offers a strong password, only when the origin is known', () => {
+  const activity = code(path.join(MAIN, 'autofill/AutofillAuthActivity.kt'));
+  expect(activity).toContain('showStrongPassword');
+  expect(activity).toContain('PasswordGenerator.generate(');
+  // The button is inside a check ...
+  expect(activity).toMatch(
+    /if \(canSuggest\(request\)\) \{\s*ui\.button\("Suggest a strong password"/,
+  );
+  // ... that needs a known site or app, a password box, and a page that is not a change-password
+  // page or the user-name-only page (the service says so with allowSuggest).
+  const canSuggest =
+    activity.match(
+      /private fun canSuggest[\s\S]*?\n {2}\n|private fun canSuggest[^\n]*\n[^\n]*\n/,
+    )?.[0] ?? '';
+  expect(canSuggest).toContain('request.allowSuggest');
+  expect(canSuggest).toContain('request.passwordId != null');
+  expect(canSuggest).toContain('OriginResult.Known');
+  // A fingerprint that was cancelled or is not available does not leave the person stuck.
+  expect(activity).toContain('showChoice');
+  expect(activity).toContain('showProblem');
+  // The user-name-only page never fills an empty value.
+  expect(activity).toMatch(/request\.passwordId == null && username\.isEmpty\(\)/);
+  // The password goes to the boxes through the one place that hands answers to Android.
+  expect(activity.match(/Dataset\.Builder\(/g)).toHaveLength(1);
+  // A copy waits in the encrypted pending-save file, as for the sheet on marked sign-up pages.
+  expect(activity).toContain('SaveCapture.forSuggestion');
+});
+
+test('both screens are drawn by the shared sheet, and the security settings stay in the screens', () => {
+  for (const name of ['AutofillAuthActivity.kt', 'AutofillSuggestActivity.kt']) {
+    const activity = code(path.join(MAIN, 'autofill', name));
+    expect(activity).toContain('SheetUi(this)');
+    expect(activity).toContain('ui.root.filterTouchesWhenObscured = true');
+    expect(activity).toContain('ui.sheet.filterTouchesWhenObscured = true');
+    // Neither screen builds its own views any more.
+    expect(activity).not.toMatch(/(Button|TextView|EditText|LinearLayout)\(this\)/);
+  }
+});
+
+test('the sheet draws only: no vault, no files, no intents, no network', () => {
+  const ui = code(path.join(MAIN, 'autofill/SheetUi.kt'));
+  expect(ui).not.toMatch(
+    /VaultReader|VaultKeyUnlocker|Intent\(|putExtra|PendingSaves|filesDir|FillResponse|Dataset/,
+  );
+});
+
+test('the drop-down suggestions have fixed text and no page content', () => {
+  const res = path.join(MAIN, '../../../../res/layout');
+  for (const name of [
+    'kitevault_autofill_locked_item.xml',
+    'kitevault_autofill_suggest_item.xml',
+  ]) {
+    const xml = fs.readFileSync(path.join(res, name), 'utf8');
+    expect(xml).toMatch(/android:text="[^"@]+"/);
+    // The only web address allowed is the XML namespace that every Android layout starts with.
+    expect(xml.replace('http://schemas.android.com/apk/res/android', '')).not.toMatch(
+      /https?:\/\//,
+    );
+  }
+});
+
+test('the strong-password screen makes no use of the vault', () => {
+  const activity = code(path.join(MAIN, 'autofill/AutofillSuggestActivity.kt'));
+  expect(activity).not.toMatch(/VaultReader|VaultKeyUnlocker|readVaultFile|decrypt\(/);
+});
+
+test('random passwords come only from SecureRandom, never from a weaker source', () => {
+  const autofill = files.filter((f) => f.includes(`${path.sep}autofill${path.sep}`));
+  const offenders = autofill
+    .filter((f) =>
+      /java\.util\.Random|kotlin\.random|Random\.Default|Math\.random|\.shuffled\(/.test(code(f)),
+    )
+    .map((f) => path.basename(f));
+  expect(offenders).toEqual([]);
+  const generator = code(path.join(MAIN, 'autofill/PasswordGenerator.kt'));
+  expect(generator).toContain('SecureRandom');
+});
+
 test('the service answers with a locked suggestion and never fills by itself', () => {
   const service = code(path.join(MAIN, 'autofill/KiteVaultAutofillService.kt'));
   expect(service).toContain('setAuthentication');
@@ -100,4 +187,18 @@ test('nothing sensitive is put into an intent', () => {
 test('a pending save never prints its contents', () => {
   const model = code(path.join(MAIN, 'autofill/PendingSave.kt'));
   expect(model).toContain('override fun toString() = "PendingSave(${save.kind})"');
+});
+
+test('the service never offers a strong password on a change-password page or the user-name page', () => {
+  const service = code(path.join(MAIN, 'autofill/KiteVaultAutofillService.kt'));
+  expect(service).toContain('FieldClassifier.hasNewPasswordBox');
+  expect(service).toMatch(/allowSuggest = false/);
+  // The user-name-only page is only used when there is no password box and no save form.
+  expect(service).toContain('findUsernameStep');
+});
+
+test('the remembered choices (length, symbols) are the only thing the options file keeps', () => {
+  const prefs = code(path.join(MAIN, 'autofill/GeneratorPrefs.kt'));
+  expect(prefs.match(/putInt\(|putBoolean\(|putString\(/g)).toHaveLength(2);
+  expect(prefs).not.toMatch(/putString|"[^"]*(password|host|user|site|account)[^"]*"/i);
 });

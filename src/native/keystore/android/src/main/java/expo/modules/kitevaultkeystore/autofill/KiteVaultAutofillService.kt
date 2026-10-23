@@ -11,6 +11,7 @@ import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
+import android.service.autofill.SaveInfo
 import android.service.autofill.SaveRequest
 import android.view.autofill.AutofillId
 import android.widget.RemoteViews
@@ -28,6 +29,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * names, so nothing private appears before the user proves it is them with a fingerprint or face.
  * Only if the user taps the suggestion does Android open [AutofillAuthActivity], which does the
  * unlocking and returns the matching login.
+ *
+ * On a sign-up form (a NEW password box) it instead answers with "Suggest strong password",
+ * which opens [AutofillSuggestActivity]. That screen makes a random password and nothing else:
+ * no vault data is involved, so no fingerprint is needed.
  *
  * Nothing is ever filled by this class. It also handles "save": see [onSaveRequest].
  */
@@ -82,11 +87,36 @@ class KiteVaultAutofillService : AutofillService() {
 
     val form = FieldClassifier.findLoginForm(parsed.screen.fields)
     if (form == null) {
-      // A sign-up or change-password form: nothing to fill, but the new login can be saved.
-      return saveInfo?.let { FillResponse.Builder().setSaveInfo(it).build() }
+      // A sign-up or change-password form: KiteVault can suggest a strong password, and the new
+      // login can be saved afterwards.
+      val suggestion = saveForm?.let { suggestionResponse(parsed, it, fromBrowser, saveInfo) }
+      if (suggestion != null) return suggestion
+      if (saveInfo != null) return FillResponse.Builder().setSaveInfo(saveInfo).build()
+      // No password box at all: the first page of a sign-in that asks for the user name first.
+      val step = FieldClassifier.findUsernameStep(parsed.screen.fields) ?: return null
+      return lockedFillResponse(parsed, fromBrowser, password = null, username = step, saveInfo = null, allowSuggest = false)
     }
 
-    val origin = RequestOrigin.decide(parsed.screen, form, fromBrowser)
+    // On a page that also has a box for a NEW password (a change-password page) the tapped box
+    // holds the old password, so no strong password is offered there.
+    val allowSuggest = !FieldClassifier.hasNewPasswordBox(parsed.screen.fields)
+    return lockedFillResponse(parsed, fromBrowser, form.password, form.username, saveInfo, allowSuggest)
+  }
+
+  /**
+   * The ONE locked suggestion, "Unlock KiteVault to fill", for the given boxes (a password box,
+   * a user-name box, or both). Returns null when a browser screen has no web address at all.
+   */
+  private fun lockedFillResponse(
+    parsed: ParsedRequest,
+    fromBrowser: Boolean,
+    password: FieldNode?,
+    username: FieldNode?,
+    saveInfo: SaveInfo?,
+    allowSuggest: Boolean,
+  ): FillResponse? {
+    val ownerPackage = parsed.screen.packageName
+    val origin = RequestOrigin.decideFor(parsed.screen, listOfNotNull(password, username), fromBrowser)
 
     val displayName =
       when (origin) {
@@ -102,21 +132,15 @@ class KiteVaultAutofillService : AutofillService() {
         }
       }
 
-    val passwordId: AutofillId = parsed.ids[form.password.index]
-    val usernameId: AutofillId? = form.username?.let { parsed.ids[it.index] }
+    val passwordId: AutofillId? = password?.let { parsed.ids[it.index] }
+    val usernameId: AutofillId? = username?.let { parsed.ids[it.index] }
 
     val ticket =
       FillRequests.registry.put(
-        PendingFill(origin, ownerPackage, displayName, passwordId, usernameId, saveInfo)
+        PendingFill(origin, ownerPackage, displayName, passwordId, usernameId, saveInfo, allowSuggest)
       )
 
-    val intent = Intent(this, AutofillAuthActivity::class.java)
-      .putExtra(AutofillAuthActivity.EXTRA_TICKET, ticket)
-    // Android adds its own extras to this intent, so it must be mutable on Android 12 and newer.
-    // The intent is explicit (our own class) and carries only a random one-time ticket.
-    var flags = PendingIntent.FLAG_CANCEL_CURRENT
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) flags = flags or PendingIntent.FLAG_MUTABLE
-    val sender = PendingIntent.getActivity(this, ticket.hashCode(), intent, flags).intentSender
+    val sender = screenSender(AutofillAuthActivity::class.java, ticket)
 
     // The text of the suggestion is fixed. It does not contain the web address or any account.
     val presentation = RemoteViews(packageName, R.layout.kitevault_autofill_locked_item)
@@ -127,6 +151,60 @@ class KiteVaultAutofillService : AutofillService() {
       .setAuthentication(ids, sender, presentation)
       .apply { saveInfo?.let { setSaveInfo(it) } }
       .build()
+  }
+
+  /**
+   * The answer for a sign-up or change-password form: ONE locked suggestion, "Suggest strong
+   * password". It contains no password and no page text; the password is made only if the person
+   * taps it, on [AutofillSuggestActivity]. Returns null (so only the offer to save remains) when
+   * we do not know exactly who is asking, or when no usable new-password box exists.
+   */
+  private fun suggestionResponse(
+    parsed: ParsedRequest,
+    saveForm: LoginForm,
+    fromBrowser: Boolean,
+    saveInfo: SaveInfo?,
+  ): FillResponse? {
+    val origin =
+      (RequestOrigin.decide(parsed.screen, saveForm, fromBrowser) as? OriginResult.Known)?.origin
+        ?: return null
+    val newBoxes = FieldClassifier.findNewPasswordBoxes(parsed.screen.fields)
+    if (newBoxes.isEmpty()) return null
+    // Every box that would be filled must belong to the very same site.
+    if (origin is Origin.Web) {
+      val sameSite = newBoxes.all { it.webDomain?.let { d -> DomainMatcher.normalizeHost(d) } == origin.host }
+      if (!sameSite) return null
+    }
+    val ids = newBoxes.map { parsed.ids[it.index] }
+    val displayName =
+      when (origin) {
+        is Origin.Web -> origin.host
+        is Origin.App -> AppIdentity.label(this, origin.packageName) ?: origin.packageName
+      }
+    val ticket =
+      SuggestionRequests.registry.put(
+        PendingSuggestion(origin, parsed.screen.packageName, displayName, ids, saveInfo)
+      )
+    val sender = screenSender(AutofillSuggestActivity::class.java, ticket)
+    // The text of the suggestion is fixed. It does not contain the web address or any account.
+    val presentation = RemoteViews(packageName, R.layout.kitevault_autofill_suggest_item)
+    @Suppress("DEPRECATION")
+    return FillResponse.Builder()
+      .setAuthentication(ids.toTypedArray(), sender, presentation)
+      .apply { saveInfo?.let { setSaveInfo(it) } }
+      .build()
+  }
+
+  /**
+   * Opens one of KiteVault's own screens when the person taps a suggestion. The intent is
+   * explicit (our own class) and carries only a random one-time ticket, nothing else.
+   */
+  private fun screenSender(screen: Class<*>, ticket: String): IntentSender {
+    val intent = Intent(this, screen).putExtra(AutofillAuthActivity.EXTRA_TICKET, ticket)
+    // Android adds its own extras to this intent, so it must be mutable on Android 12 and newer.
+    var flags = PendingIntent.FLAG_CANCEL_CURRENT
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) flags = flags or PendingIntent.FLAG_MUTABLE
+    return PendingIntent.getActivity(this, ticket.hashCode(), intent, flags).intentSender
   }
 
   /**

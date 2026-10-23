@@ -18,9 +18,10 @@ class FieldClassifierTest {
     var focused = false
     var usable = true
     var domain: String? = null
+    var label = ""
 
     fun build() =
-      FieldNode(index, hints, htmlType, autocomplete, inputType, focused, usable, domain, null)
+      FieldNode(index, hints, htmlType, autocomplete, inputType, focused, usable, domain, null, label)
   }
 
   private fun f(index: Int, init: Builder.() -> Unit = {}): FieldNode =
@@ -240,5 +241,199 @@ class FieldClassifierTest {
     val fields = listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("newPassword") })
     assertNull(FieldClassifier.findLoginForm(fields))
     assertNotNull(FieldClassifier.findSaveForm(fields))
+  }
+
+  @Test
+  fun newPasswordBoxesAreTheVisibleOnesMarkedAsNew() {
+    val fields =
+      listOf(
+        f(0) { hints = listOf("username") },
+        f(1) { hints = listOf("newPassword") },
+        f(2) { hints = listOf("newPassword") }, // the "confirm" box
+        f(3) { hints = listOf("newPassword"); usable = false }, // hidden: never filled
+      )
+    assertEquals(listOf(1, 2), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+  }
+
+  @Test
+  fun aWebPageMarkedNewPasswordCountsToo() {
+    val fields = listOf(f(0) { autocomplete = "new-password"; htmlType = "password" })
+    assertEquals(listOf(0), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+  }
+
+  @Test
+  fun aBoxTheSiteMarksAsCurrentIsNeverANewPasswordBox() {
+    val fields =
+      listOf(
+        f(0) { hints = listOf("password") },
+        f(1) { htmlType = "password"; autocomplete = "current-password" },
+      )
+    assertEquals(emptyList<FieldNode>(), FieldClassifier.findNewPasswordBoxes(fields))
+  }
+
+  @Test
+  fun aSinglePasswordBoxThatIsNotMarkedIsAlwaysASignIn() {
+    for (box in listOf(f(0) { inputType = passwordInput }, f(0) { htmlType = "password" })) {
+      assertEquals(emptyList<FieldNode>(), FieldClassifier.findNewPasswordBoxes(listOf(box)))
+      assertNotNull(FieldClassifier.findLoginForm(listOf(box)))
+    }
+  }
+
+  @Test
+  fun aSignInFormHasNoNewPasswordBoxes() {
+    val fields = listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("password") })
+    assertEquals(emptyList<FieldNode>(), FieldClassifier.findNewPasswordBoxes(fields))
+    assertNotNull(FieldClassifier.findLoginForm(fields))
+  }
+
+  @Test
+  fun aSignUpFormGetsASuggestionBoxButStillNoFill() {
+    val fields = listOf(f(0) { hints = listOf("emailAddress") }, f(1) { hints = listOf("newPassword") })
+    assertNull(FieldClassifier.findLoginForm(fields))
+    assertEquals(listOf(1), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+  }
+
+  // --- Pages that do not mark their boxes: a careful guess, only with two or more password boxes
+
+  @Test
+  fun twoUnmarkedPasswordBoxesAreASignUpWithAConfirmBox() {
+    val fields =
+      listOf(f(0) { hints = listOf("emailAddress") }, f(1) { inputType = passwordInput }, f(2) { inputType = passwordInput })
+    assertEquals(listOf(1, 2), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+    assertNull(FieldClassifier.findLoginForm(fields))
+    // Both boxes are saved as one new password.
+    assertEquals(1, FieldClassifier.findSaveForm(fields)!!.password.index)
+  }
+
+  @Test
+  fun twoBoxesWhereOneIsCalledCurrentOrOldAreAChangePassword() {
+    val fields =
+      listOf(
+        f(0) { inputType = passwordInput; label = "current password" },
+        f(1) { inputType = passwordInput; label = "new password" },
+      )
+    assertEquals(listOf(1), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+    val old = listOf(f(0) { inputType = passwordInput; label = "old_pass" }, f(1) { inputType = passwordInput })
+    assertEquals(listOf(1), FieldClassifier.findNewPasswordBoxes(old).map { it.index })
+    // The old password is never the one that is saved.
+    assertEquals(1, FieldClassifier.findSaveForm(fields)!!.password.index)
+  }
+
+  @Test
+  fun threeUnmarkedBoxesAreChangePasswordWithTheFirstOneHoldingTheOldPassword() {
+    val fields = List(3) { i -> f(i) { inputType = passwordInput } }
+    assertEquals(listOf(1, 2), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+  }
+
+  @Test
+  fun onAChangePasswordPageTheCurrentBoxIsFilledOnlyWhenItIsTheOneTapped() {
+    val notTapped =
+      listOf(f(0) { inputType = passwordInput; label = "current" }, f(1) { inputType = passwordInput })
+    assertNull(FieldClassifier.findLoginForm(notTapped))
+    val tapped =
+      listOf(f(0) { inputType = passwordInput; label = "current"; focused = true }, f(1) { inputType = passwordInput })
+    assertEquals(0, FieldClassifier.findLoginForm(tapped)!!.password.index)
+    // Tapping the new box fills nothing: it gets the strong-password suggestion instead.
+    val newTapped =
+      listOf(f(0) { inputType = passwordInput; label = "current" }, f(1) { inputType = passwordInput; focused = true })
+    assertNull(FieldClassifier.findLoginForm(newTapped))
+    assertEquals(listOf(1), FieldClassifier.findNewPasswordBoxes(newTapped).map { it.index })
+  }
+
+  @Test
+  fun markedBoxesAreBelievedOverAnyGuess() {
+    // The page says the second box is for the current password: it stays one, whatever its name.
+    val fields =
+      listOf(
+        f(0) { hints = listOf("newPassword"); label = "x" },
+        f(1) { hints = listOf("password"); label = "confirm password" },
+      )
+    assertEquals(listOf(0), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+  }
+
+  @Test
+  fun anUnmarkedConfirmBoxAfterAMarkedNewBoxIsFilledToo() {
+    val fields = listOf(f(0) { hints = listOf("newPassword") }, f(1) { inputType = passwordInput })
+    assertEquals(listOf(0, 1), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+  }
+
+  @Test
+  fun anUnmarkedBoxBeforeAMarkedNewBoxHoldsTheOldPassword() {
+    val fields = listOf(f(0) { inputType = passwordInput }, f(1) { hints = listOf("newPassword") })
+    assertEquals(listOf(1), FieldClassifier.findNewPasswordBoxes(fields).map { it.index })
+  }
+
+  @Test
+  fun aSingleBoxNamedLikeANewPasswordIsANewPassword() {
+    val named = listOf(f(0) { inputType = passwordInput; label = "create a password" })
+    assertEquals(listOf(0), FieldClassifier.findNewPasswordBoxes(named).map { it.index })
+    // But an ordinary name is a sign-in.
+    val plain = listOf(f(0) { inputType = passwordInput; label = "enter your password" })
+    assertEquals(emptyList<FieldNode>(), FieldClassifier.findNewPasswordBoxes(plain))
+  }
+
+  @Test
+  fun hiddenPasswordBoxesDoNotMakeAPageASignUp() {
+    // A login page that also carries a hidden second password box is still a login page.
+    val fields = listOf(f(0) { inputType = passwordInput }, f(1) { inputType = passwordInput; usable = false })
+    assertEquals(emptyList<FieldNode>(), FieldClassifier.findNewPasswordBoxes(fields))
+    assertNotNull(FieldClassifier.findLoginForm(fields))
+  }
+
+  @Test
+  fun twoSignInBoxesMarkedCurrentStayASignIn() {
+    val fields = listOf(f(0) { hints = listOf("password"); focused = true }, f(1) { hints = listOf("password") })
+    assertEquals(emptyList<FieldNode>(), FieldClassifier.findNewPasswordBoxes(fields))
+    assertEquals(0, FieldClassifier.findLoginForm(fields)!!.password.index)
+  }
+
+  @Test
+  fun rolesOfIsStableForAnyOrderOfTheList() {
+    val a = f(0) { inputType = passwordInput }
+    val b = f(1) { inputType = passwordInput }
+    assertEquals(FieldClassifier.rolesOf(listOf(a, b)), FieldClassifier.rolesOf(listOf(b, a)))
+  }
+
+  // --- The first page of a two-page sign-in: only a user name
+
+  @Test
+  fun aPageWithOnlyAMarkedUserNameIsTheFirstStepOfASignIn() {
+    val byHint = listOf(f(0) { hints = listOf("username") })
+    assertEquals(0, FieldClassifier.findUsernameStep(byHint)!!.index)
+    val byAutocomplete = listOf(f(0) { autocomplete = "username"; htmlType = "email" })
+    assertEquals(0, FieldClassifier.findUsernameStep(byAutocomplete)!!.index)
+  }
+
+  @Test
+  fun anOrdinaryEmailBoxIsNeverOffered() {
+    // A newsletter or contact form: an e-mail box with no "username" mark.
+    assertNull(FieldClassifier.findUsernameStep(listOf(f(0) { htmlType = "email" })))
+    assertNull(FieldClassifier.findUsernameStep(listOf(f(0) { hints = listOf("emailAddress") })))
+    assertNull(FieldClassifier.findUsernameStep(listOf(f(0) { inputType = emailInput })))
+  }
+
+  @Test
+  fun theUserNameStepNeedsAPageWithNoPasswordBoxAtAll() {
+    val withPassword = listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("password") })
+    assertNull(FieldClassifier.findUsernameStep(withPassword))
+    val hiddenPassword = listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("password"); usable = false })
+    assertEquals(0, FieldClassifier.findUsernameStep(hiddenPassword)!!.index)
+  }
+
+  @Test
+  fun theUserNameStepNeedsAVisibleBoxAndTheTappedOneWinsWhenThereAreSeveral() {
+    assertNull(FieldClassifier.findUsernameStep(listOf(f(0) { hints = listOf("username"); usable = false })))
+    val two = listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("username"); focused = true })
+    assertEquals(1, FieldClassifier.findUsernameStep(two)!!.index)
+    val unclear = listOf(f(0) { hints = listOf("username") }, f(1) { hints = listOf("username") })
+    assertNull(FieldClassifier.findUsernameStep(unclear))
+    assertNull(FieldClassifier.findUsernameStep(emptyList()))
+  }
+
+  @Test
+  fun aPasswordOnlyPageIsStillTheNormalSecondStep() {
+    val form = FieldClassifier.findLoginForm(listOf(f(0) { hints = listOf("password") }))!!
+    assertEquals(0, form.password.index)
+    assertNull(form.username)
   }
 }

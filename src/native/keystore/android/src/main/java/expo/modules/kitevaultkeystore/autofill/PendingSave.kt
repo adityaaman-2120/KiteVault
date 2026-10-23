@@ -103,10 +103,20 @@ internal object PendingSaveCodec {
   }
 
   /** Same place and same account: a newer save replaces the older one. */
-  fun sameTarget(a: NewSave, b: NewSave): Boolean =
+  fun sameTarget(a: NewSave, b: NewSave): Boolean = samePlace(a, b) && a.username == b.username
+
+  private fun samePlace(a: NewSave, b: NewSave): Boolean =
     a.kind == b.kind &&
-      a.username == b.username &&
       a.host == b.host &&
       a.packageName == b.packageName &&
       a.certSha256 == b.certSha256
+
+  /**
+   * Whether [newer] takes the place of [older]. Besides the same account, a newer save also
+   * replaces the note of a suggested password (no user name yet) when it is for the same place
+   * and has the same password: the sign-up went through and now has its user name.
+   */
+  fun replaces(newer: NewSave, older: NewSave): Boolean =
+    sameTarget(older, newer) ||
+      (older.username.isEmpty() && samePlace(older, newer) && older.password == newer.password)
 }

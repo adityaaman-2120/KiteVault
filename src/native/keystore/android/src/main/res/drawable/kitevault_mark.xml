@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The KiteVault kite (four shaded facets and a keyhole), as a vector so it is sharp at any size. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="32dp"
+    android:viewportWidth="120"
+    android:viewportHeight="160">
+    <path android:fillColor="#FFC861" android:pathData="M60,14 L28,46 L60,46 Z" />
+    <path android:fillColor="#FF9F45" android:pathData="M60,14 L92,46 L60,46 Z" />
+    <path android:fillColor="#FF8A4C" android:pathData="M28,46 L60,104 L60,46 Z" />
+    <path android:fillColor="#F2643F" android:pathData="M92,46 L60,104 L60,46 Z" />
+    <path android:fillColor="#0E1630" android:pathData="M53,44.3 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+    <path android:fillColor="#0E1630" android:pathData="M57,48 L63,48 L65.7,65.3 L54.3,65.3 Z" />
+</vector>

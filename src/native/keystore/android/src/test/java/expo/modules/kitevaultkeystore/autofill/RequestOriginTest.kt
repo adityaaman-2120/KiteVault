@@ -70,4 +70,29 @@ class RequestOriginTest {
     assertEquals(OriginResult.Refused(Refusal.NO_DOMAIN, null), result)
     assertTrue(decide(null, box(0, "  "), true) is OriginResult.Refused)
   }
+
+  @Test
+  fun aUserNameOnlyPageIsDecidedFromItsOneBox() {
+    val screen = ParsedScreen("com.android.chrome", listOf(box(0, "accounts.example.com")))
+    assertEquals(
+      OriginResult.Known(Origin.Web("accounts.example.com")),
+      RequestOrigin.decideFor(screen, listOf(box(0, "accounts.example.com")), true),
+    )
+    // The same rules: no address, not https, and an app is told apart by its package.
+    assertEquals(OriginResult.Refused(Refusal.NO_DOMAIN, null), RequestOrigin.decideFor(screen, listOf(box(0, null)), true))
+    assertEquals(
+      OriginResult.Refused(Refusal.NOT_HTTPS, "example.com"),
+      RequestOrigin.decideFor(screen, listOf(box(0, "example.com", "http")), true),
+    )
+    assertEquals(
+      OriginResult.Known(Origin.App("com.android.chrome")),
+      RequestOrigin.decideFor(screen, listOf(box(0, "ignored.com")), false),
+    )
+  }
+
+  @Test
+  fun decideForWithNoBoxesIsRefusedAsHavingNoAddress() {
+    val screen = ParsedScreen("com.android.chrome", emptyList())
+    assertEquals(OriginResult.Refused(Refusal.NO_DOMAIN, null), RequestOrigin.decideFor(screen, emptyList(), true))
+  }
 }

@@ -192,4 +192,34 @@ class SaveCaptureTest {
     val save = capture(fields, listOf("alice", "hidden-value", "real-value"), trustedBrowser = true)!!
     assertEquals("real-value", save.password)
   }
+
+  @Test
+  fun aSuggestedPasswordIsNotedForTheWebsiteWithNoUserNameYet() {
+    val note =
+      SaveCapture.forSuggestion(Origin.Web("shop.example.com"), "Abc!1234xyz", { "App" }, { null })!!
+    assertEquals(SaveKind.WEB, note.kind)
+    assertEquals("", note.username)
+    assertEquals("Abc!1234xyz", note.password)
+    assertEquals("shop.example.com", note.host)
+    assertNull(note.packageName)
+  }
+
+  @Test
+  fun aSuggestedPasswordForAnAppNeedsTheAppsCertificate() {
+    val certs = AppCertificates(setOf("BBBB", "AAAA"), setOf("BBBB", "AAAA"))
+    val note =
+      SaveCapture.forSuggestion(Origin.App("com.example.app"), "pw-123456", { "Example App" }, { certs })!!
+    assertEquals(SaveKind.APP, note.kind)
+    assertEquals("com.example.app", note.packageName)
+    assertEquals("Example App", note.label)
+    assertEquals("AAAA", note.certSha256)
+    // Without a certificate a later fill could not be matched safely, so nothing is kept.
+    assertNull(SaveCapture.forSuggestion(Origin.App("com.example.app"), "pw-123456", { "x" }, { null }))
+  }
+
+  @Test
+  fun anEmptyOrHugeSuggestedPasswordIsNeverKept() {
+    assertNull(SaveCapture.forSuggestion(Origin.Web("a.com"), "", { null }, { null }))
+    assertNull(SaveCapture.forSuggestion(Origin.Web("a.com"), "x".repeat(2000), { null }, { null }))
+  }
 }

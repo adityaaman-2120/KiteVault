@@ -8,7 +8,13 @@ import { useVaultStore } from '@/vault';
 import { vaultFile } from '@/vault/__support__/testUtils';
 
 import { saveAsNewLogin, updateLoginPassword } from '../saveActions';
-import { findExistingLogins, normalizeCert, originText, suggestedTitle } from '../saveMatching';
+import {
+  findExistingLogins,
+  findLoginsAtOrigin,
+  normalizeCert,
+  originText,
+  suggestedTitle,
+} from '../saveMatching';
 
 const web = (over: Partial<PendingSave> = {}, host = 'bank.com'): PendingSave => ({
   id: 'p1',
@@ -230,5 +236,42 @@ describe('updating a password', () => {
     const file = Buffer.from(await vaultFile().bytes()).toString('latin1');
     expect(file).not.toContain('old-pass');
     expect(file).not.toContain('new-pass');
+  });
+});
+
+describe('finding the logins at a place (a page with no user name)', () => {
+  const entries = [
+    entry({ id: 'old', username: 'alice', urls: ['https://bank.com'], updatedAt: 1 }),
+    entry({ id: 'new', username: 'bob', urls: ['https://www.bank.com/login'], updatedAt: 9 }),
+    entry({ id: 'other', username: 'alice', urls: ['https://other.com'] }),
+    entry({ id: 'sub', username: 'alice', urls: ['https://mail.bank.com'] }),
+    entry({ id: 'trash', username: 'alice', urls: ['https://bank.com'], deletedAt: 5 }),
+    entry({ id: 'note', type: 'note', urls: ['https://bank.com'] }),
+  ];
+
+  test('every login for that host counts, whatever its user name, newest first', () => {
+    const origin = { kind: 'web' as const, host: 'bank.com' };
+    expect(findLoginsAtOrigin(entries, origin).map((e) => e.id)).toEqual(['new', 'old']);
+  });
+
+  test('other sites, other subdomains, the Trash and notes do not count', () => {
+    const origin = { kind: 'web' as const, host: 'nowhere.com' };
+    expect(findLoginsAtOrigin(entries, origin)).toEqual([]);
+  });
+
+  test('an app only counts with its package and certificate', () => {
+    const linked = entry({
+      id: 'linked',
+      username: 'bob',
+      appLinks: [{ packageName: 'com.example.app', certSha256: 'AABB' }],
+    });
+    const origin = {
+      kind: 'app' as const,
+      packageName: 'com.example.app',
+      label: 'Example',
+      certSha256: 'AA:BB',
+    };
+    expect(findLoginsAtOrigin([linked, ...entries], origin).map((e) => e.id)).toEqual(['linked']);
+    expect(findLoginsAtOrigin([linked], { ...origin, certSha256: 'FFFF' })).toEqual([]);
   });
 });

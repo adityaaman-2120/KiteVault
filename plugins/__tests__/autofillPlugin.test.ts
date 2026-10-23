@@ -70,6 +70,31 @@ describe('the unlock screen entry', () => {
   });
 });
 
+describe('the strong-password sheet entry', () => {
+  const manifest = plugin.applyAutofillManifest(emptyManifest()) as Manifest;
+  const activity = find(manifest.application[0]!.activity, plugin.SUGGEST_ACTIVITY)!;
+
+  test('cannot be started by other apps and is kept out of the recent-apps list', () => {
+    expect(activity).toBeDefined();
+    expect(activity.$['android:exported']).toBe('false');
+    expect(activity.$['android:excludeFromRecents']).toBe('true');
+    expect(activity.$['android:noHistory']).toBe('true');
+    expect(activity['intent-filter']).toBeUndefined();
+  });
+
+  test('uses the same see-through theme as the unlock screen', () => {
+    expect(activity.$['android:theme']).toBe('@style/KiteVaultAutofillTheme');
+  });
+
+  test('points at a class that exists in the Kotlin module', () => {
+    const kotlin = path.join(
+      moduleDir,
+      'java/expo/modules/kitevaultkeystore/autofill/AutofillSuggestActivity.kt',
+    );
+    expect(fs.existsSync(kotlin)).toBe(true);
+  });
+});
+
 describe('the manifest as a whole', () => {
   test('keeps what was there and never adds a second copy when run twice', () => {
     const once = plugin.applyAutofillManifest(emptyManifest()) as Manifest;
@@ -77,6 +102,9 @@ describe('the manifest as a whole', () => {
     const app = twice.application[0]!;
     expect(app.service).toHaveLength(1);
     expect(app.activity!.filter((a) => a.$['android:name'] === plugin.ACTIVITY)).toHaveLength(1);
+    expect(
+      app.activity!.filter((a) => a.$['android:name'] === plugin.SUGGEST_ACTIVITY),
+    ).toHaveLength(1);
     expect(find(app.activity, '.MainActivity')).toBeDefined();
     expect(twice.queries).toHaveLength(1);
   });
@@ -93,6 +121,9 @@ describe('the manifest as a whole', () => {
     );
     expect(
       fs.existsSync(path.join(moduleDir, 'res/layout/kitevault_autofill_locked_item.xml')),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(moduleDir, 'res/layout/kitevault_autofill_suggest_item.xml')),
     ).toBe(true);
   });
 

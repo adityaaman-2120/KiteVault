@@ -37,11 +37,17 @@ internal sealed interface OriginResult {
  * every box we would fill belongs to the very same site.
  */
 internal object RequestOrigin {
-  fun decide(screen: ParsedScreen, form: LoginForm, fromTrustedBrowser: Boolean): OriginResult {
+  fun decide(screen: ParsedScreen, form: LoginForm, fromTrustedBrowser: Boolean): OriginResult =
+    decideFor(screen, listOfNotNull(form.password, form.username), fromTrustedBrowser)
+
+  /**
+   * The same decision for any set of boxes that would be filled. The first box names the site.
+   * A page with only a user-name box (the first step of a two-page sign-in) uses this directly.
+   */
+  fun decideFor(screen: ParsedScreen, boxes: List<FieldNode>, fromTrustedBrowser: Boolean): OriginResult {
     if (!fromTrustedBrowser) return OriginResult.Known(Origin.App(screen.packageName))
 
-    val boxes = listOfNotNull(form.password, form.username)
-    val host = form.password.webDomain?.let { DomainMatcher.normalizeHost(it) }
+    val host = boxes.firstOrNull()?.webDomain?.let { DomainMatcher.normalizeHost(it) }
       ?: return OriginResult.Refused(Refusal.NO_DOMAIN, null)
 
     // Every box we would fill must say the same site. A missing or different one means the

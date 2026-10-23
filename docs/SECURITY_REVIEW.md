@@ -215,6 +215,20 @@ No package here looked abandoned. That is a statement about release dates, not a
 
 ---
 
+## 8b. Strong passwords and sign-up pages (added 2026-10-23, not covered by the review above)
+
+What was added to the autofill code, and what a reviewer should look at:
+
+- **A screen that shows a password without a fingerprint** (`AutofillSuggestActivity`, and the strong-password step of `AutofillAuthActivity`). It makes a random password with `SecureRandom` (every character equally likely, never `Math.random`; a source test forbids any other source). It reads nothing from the vault (a source test forbids vault code in it). Not exported, `FLAG_SECURE`, ignores taps while another window covers it, closes when left, reachable only through a one-time ticket (128 random bits, one use, one minute).
+- **What it keeps:** a note (the password, no user name, the place) in the same Keystore-sealed pending file as every other pending save, deleted after ten minutes, replaced when the sign-up is really saved; and two settings (a length and a yes/no for symbols) in private preferences. A source test checks the options file holds nothing else.
+- **A guess about unmarked pages** (`FieldClassifier.rolesOf`). It only runs with two or more visible password boxes, never with one. **Worst case:** a sign-in page that really has two password-type boxes shows "Suggest strong password" instead of the saved login, and a save is never made when the two boxes disagree. The box names it reads (id, name, placeholder, label) stay in memory and are never shown, saved or logged. A page can only influence the guess for boxes that are visible and enabled.
+- **Who can get a random password filled in:** any page that has a visible new-password box can make KiteVault offer one to its own box. That is harmless (a random value goes into a box of that page, and the sheet names the site). A hostile page cannot read it before the person taps Use password.
+- **A user-name-only page** is offered only for a box explicitly marked as a user name, under the same origin rules (trusted browser, https, one site, or an app by package). Only the user name is filled.
+- **Open for the reviewer:** whether a person could be tricked into using a suggested password on the wrong site (the site is shown in a pill, with a green lock only for a web address a trusted browser reported over https); and whether the ten-minute note is acceptable (it is encrypted with a key that needs the phone to be unlocked, but not a fingerprint, like every pending save).
+- **Not tested on a phone.** See `docs/MANUAL_TEST_PLAN.md` 14.11 to 14.24.
+
+---
+
 ## 9. Re-running the checks
 
 ```

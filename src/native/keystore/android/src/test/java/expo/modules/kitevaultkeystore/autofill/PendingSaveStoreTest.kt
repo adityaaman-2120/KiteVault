@@ -245,4 +245,47 @@ class PendingSaveStoreTest {
     assertEquals(listOf("e"), decoded.map { it.id })
     assertNull(PendingSaveCodec.decode("not json".toByteArray()))
   }
+
+  @Test
+  fun theSignUpThatUsedASuggestedPasswordReplacesItsNote() {
+    val s = store()
+    s.add(web(user = "", pass = "Suggested-1!"))
+    s.add(web(user = "alice", pass = "Suggested-1!"))
+    val list = s.list()
+    assertEquals(1, list.size)
+    assertEquals("alice", list[0].save.username)
+  }
+
+  @Test
+  fun aNoteIsOnlyReplacedForTheSamePlaceAndTheSamePassword() {
+    val s = store()
+    s.add(web(user = "", pass = "Suggested-1!", host = "example.com"))
+    s.add(web(user = "alice", pass = "Another-pass-2", host = "example.com")) // other password
+    s.add(web(user = "alice", pass = "Suggested-1!", host = "other.com")) // other place
+    assertEquals(3, s.list().size)
+  }
+
+  @Test
+  fun aSaveWithAUserNameIsNeverReplacedByAnotherUserNamesSave() {
+    val s = store()
+    s.add(web(user = "alice", pass = "same-password-9"))
+    s.add(web(user = "bob", pass = "same-password-9"))
+    assertEquals(2, s.list().size)
+  }
+
+  @Test
+  fun aNewNoteForTheSameSuggestionAlsoReplacesTheOldOne() {
+    val s = store()
+    s.add(web(user = "", pass = "Suggested-1!"))
+    s.add(web(user = "", pass = "Suggested-1!"))
+    assertEquals(1, s.list().size)
+  }
+
+  @Test
+  fun aSuggestedPasswordNoteExpiresLikeAnyOtherPendingSave() {
+    val s = store()
+    s.add(web(user = "", pass = "Suggested-1!"))
+    now += PendingSaveCodec.MAX_AGE_MS + 1
+    assertEquals(0, s.list().size)
+  }
 }

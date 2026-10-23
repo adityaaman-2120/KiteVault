@@ -75,6 +75,7 @@ describe('what is shown', () => {
     await fireEvent.press(button('Hide password'));
     expect(screen.queryByText(/brand-new-secret/)).toBeNull();
     expect(screen.getByText(SAVE_WARNING)).toBeTruthy();
+    expect(screen.getByText('Check before you save')).toBeTruthy();
   });
 
   test('an app is shown with its name and its package name', async () => {
@@ -202,6 +203,107 @@ describe('a login that already exists', () => {
       entry({ id: 'e1', username: 'alice', urls: ['https://bank.com'], deletedAt: 5 }),
     ]);
     waiting.mockResolvedValue([web()]);
+    await render(<PendingSaveScreen />);
+    await screen.findByLabelText('Title');
+    expect(screen.queryByText('You already have a login for this')).toBeNull();
+  });
+});
+
+describe('a page with no user name (a change of password)', () => {
+  const noUser = (over: Partial<PendingSave> = {}) => web({ username: '', ...over });
+
+  test('one login for the site is offered for updating, and updating keeps the old password', async () => {
+    waiting.mockResolvedValue([noUser()]);
+    await render(<PendingSaveScreen />);
+    expect(await screen.findByText('You already have a login for this')).toBeTruthy();
+    expect(screen.getByText(/That page showed no user name/)).toBeTruthy();
+    expect(screen.queryByText('Which login did you change?')).toBeNull();
+
+    await fireEvent.press(button('Update password for "My bank"'));
+    await waitFor(() => expect(discard).toHaveBeenCalledWith('p1'));
+    const e = storeEntries()[0]!;
+    expect(storeEntries()).toHaveLength(1);
+    expect(e.username).toBe('alice'); // the account keeps its own user name
+    expect(e.password).toBe('brand-new-secret');
+    expect(e.passwordHistory.map((h) => h.password)).toEqual(['old-secret']);
+  });
+
+  test('with several logins for the site the person chooses which one changed', async () => {
+    await unlockedVaultWith([
+      entry({
+        id: 'e1',
+        title: 'Bank (alice)',
+        username: 'alice',
+        password: 'a-old',
+        urls: ['https://bank.com'],
+      }),
+      entry({
+        id: 'e2',
+        title: 'Bank (bob)',
+        username: 'bob',
+        password: 'b-old',
+        urls: ['https://bank.com'],
+      }),
+    ]);
+    waiting.mockResolvedValue([noUser()]);
+    await render(<PendingSaveScreen />);
+    expect(await screen.findByText('Which login did you change?')).toBeTruthy();
+    // Nothing is assumed: no update button yet, and nothing was changed.
+    expect(screen.queryByRole('button', { name: /^Update password/ })).toBeNull();
+    expect(storeEntries().map((x) => x.password)).toEqual(['a-old', 'b-old']);
+
+    await fireEvent.press(button('Bank (bob) (bob)'));
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Update password for "Bank (bob)"' }),
+    );
+    await waitFor(() => expect(discard).toHaveBeenCalledWith('p1'));
+    expect(storeEntries().find((x) => x.id === 'e2')!.password).toBe('brand-new-secret');
+    expect(storeEntries().find((x) => x.id === 'e1')!.password).toBe('a-old'); // untouched
+  });
+
+  test('with several logins the person can still save it as a new login', async () => {
+    await unlockedVaultWith([
+      entry({ id: 'e1', username: 'alice', password: 'a-old', urls: ['https://bank.com'] }),
+      entry({ id: 'e2', username: 'bob', password: 'b-old', urls: ['https://bank.com'] }),
+    ]);
+    waiting.mockResolvedValue([noUser()]);
+    await render(<PendingSaveScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Save as new login' }));
+    await fireEvent.press(button('Save to KiteVault'));
+    await waitFor(() => expect(discard).toHaveBeenCalled());
+    expect(storeEntries()).toHaveLength(3);
+    expect(storeEntries().find((x) => x.id === 'e1')!.password).toBe('a-old');
+  });
+
+  test('a login that already has this password is "Already saved", even among several', async () => {
+    await unlockedVaultWith([
+      entry({ id: 'e1', username: 'alice', password: 'a-old', urls: ['https://bank.com'] }),
+      entry({
+        id: 'e2',
+        username: 'bob',
+        password: 'brand-new-secret',
+        urls: ['https://bank.com'],
+      }),
+    ]);
+    waiting.mockResolvedValue([noUser()]);
+    await render(<PendingSaveScreen />);
+    expect(await screen.findByText('Already saved')).toBeTruthy();
+    expect(screen.queryByText('Which login did you change?')).toBeNull();
+  });
+
+  test('no login for the site: it is saved as a new login as before', async () => {
+    waiting.mockResolvedValue([noUser({ origin: { kind: 'web', host: 'new-site.com' } })]);
+    await render(<PendingSaveScreen />);
+    expect(await screen.findByLabelText('Title')).toBeTruthy();
+    expect(screen.queryByText('You already have a login for this')).toBeNull();
+    expect(screen.queryByText('Which login did you change?')).toBeNull();
+  });
+
+  test('a login in the Trash is not a candidate', async () => {
+    await unlockedVaultWith([
+      entry({ id: 'e1', username: 'alice', urls: ['https://bank.com'], deletedAt: 5 }),
+    ]);
+    waiting.mockResolvedValue([noUser()]);
     await render(<PendingSaveScreen />);
     await screen.findByLabelText('Title');
     expect(screen.queryByText('You already have a login for this')).toBeNull();

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The suggestion shown in the autofill drop-down on a sign-up page (a new password box).
+  Its text is fixed on purpose: it never contains a web address, an account or any page text,
+  and no password is shown until the person taps it and sees KiteVault's own screen.
+  The colours are left to the system so it reads in both the light and the dark drop-down.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="56dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <ImageView
+        android:layout_width="20dp"
+        android:layout_height="27dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/kitevault_mark" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Suggest strong password"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.7"
+            android:text="Made and saved by KiteVault"
+            android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>

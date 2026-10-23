@@ -29,6 +29,22 @@ internal class ParsedRequest(
 internal object StructureParser {
   private const val MAX_NODES = 4000
   private const val MAX_DEPTH = 60
+  private const val MAX_LABEL = 200
+
+  /** The words a box carries about itself, in lower case, cut to a sensible length. */
+  private fun labelOf(node: AssistStructure.ViewNode, attributes: Map<String, String>): String =
+    listOfNotNull(
+        node.hint,
+        node.idEntry,
+        node.contentDescription?.toString(),
+        attributes["name"],
+        attributes["id"],
+        attributes["placeholder"],
+        attributes["aria-label"],
+      )
+      .joinToString(" ")
+      .lowercase()
+      .take(MAX_LABEL)
 
   fun parse(structure: AssistStructure, withValues: Boolean = false): ParsedRequest {
     val fields = ArrayList<FieldNode>()
@@ -56,6 +72,7 @@ internal object StructureParser {
             // The scheme is only reported by Android 9 and newer; older versions give null,
             // which RequestOrigin treats as "not https".
             webScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) node.webScheme else null,
+            label = labelOf(node, attributes),
           )
         )
         ids.add(id)

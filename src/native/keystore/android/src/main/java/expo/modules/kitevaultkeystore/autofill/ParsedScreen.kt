@@ -26,6 +26,12 @@ internal data class FieldNode(
   val webDomain: String? = null,
   /** "https" or "http", if the browser said. */
   val webScheme: String? = null,
+  /**
+   * The box's own name in lower case: its hint, id and name, and the placeholder or label the page
+   * gave it, joined with spaces. Only used to tell apart unmarked password boxes ("confirm",
+   * "current"); it is never shown, saved or logged.
+   */
+  val label: String = "",
 )
 
 /** The whole screen: which app owns it and its text boxes, in the order they appear. */

@@ -18,10 +18,17 @@ internal class PendingFill(
   val packageName: String,
   /** Text to show the user: the web host, or the app's name. Only the web host is verified. */
   val displayName: String,
-  val passwordId: AutofillId,
+  /** The password box to fill; null on the user-name-only first page of a two-page sign-in. */
+  val passwordId: AutofillId?,
   val usernameId: AutofillId?,
   /** Asks Android to offer to save the form afterwards; null when the origin is not trusted. */
   val saveInfo: SaveInfo? = null,
+  /**
+   * Whether KiteVault may offer a strong password on this screen. True on a page that has only
+   * sign-in boxes (an unmarked sign-up page looks exactly like that). False on the user-name-only
+   * page, and on a change-password page, where the box that was tapped holds the OLD password.
+   */
+  val allowSuggest: Boolean = false,
 )
 
 /** The process-wide notebook of fill requests that are waiting for the user. */

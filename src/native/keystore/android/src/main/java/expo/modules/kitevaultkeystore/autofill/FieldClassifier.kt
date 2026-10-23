@@ -11,6 +11,12 @@ internal data class LoginForm(val password: FieldNode, val username: FieldNode?)
  * classic trick to steal a filled-in password). It prefers clear hints from the app or web page,
  * and only as a last resort uses the position (the text box just before the password box).
  * It never guesses from words like "login" in an internal name.
+ *
+ * Each password box also gets a ROLE: a box for a password that already exists ([Role.CURRENT]),
+ * or a box where a NEW password is chosen ([Role.NEW]: a sign-up, or a change-password form).
+ * A page that marks its boxes (the `new-password` hint) is believed. Many pages do not, so for
+ * unmarked boxes there is a careful guess, only when there are TWO or more visible password
+ * boxes (a single box is always taken as a sign-in): see [rolesOf].
  */
 internal object FieldClassifier {
   // Values of android.text.InputType, copied here so this class needs no Android classes.
@@ -31,6 +37,15 @@ internal object FieldClassifier {
   private const val HINT_USERNAME = "username"
   private const val HINT_EMAIL = "emailAddress"
 
+  // Words in a box's own name or label. Only used to tell apart unmarked password boxes.
+  private val CURRENT_WORDS = listOf("current", "old", "existing", "previous")
+  private val CONFIRM_WORDS = listOf("confirm", "repeat", "retype", "re-enter", "reenter", "verify", "again")
+  private val NEW_PHRASES =
+    listOf("new password", "new-password", "newpassword", "create password", "create a password", "choose a password", "choose password", "set password", "set a password")
+
+  /** What a password box is for. */
+  enum class Role { CURRENT, NEW }
+
   private fun hasHint(f: FieldNode, hint: String) =
     f.autofillHints.any { it.equals(hint, ignoreCase = true) }
 
@@ -45,21 +60,78 @@ internal object FieldClassifier {
         v == TEXT_VARIATION_WEB_PASSWORD)) || (cls == CLASS_NUMBER && v == NUMBER_VARIATION_PASSWORD)
   }
 
-  /** A box for a password that already exists ("current-password"). */
+  /** The page or app clearly says this box is for a NEW password. */
+  private fun isMarkedNew(f: FieldNode) =
+    hasHint(f, HINT_NEW_PASSWORD) || f.htmlAutocomplete.equals("new-password", true)
+
+  /** A box for a password that already exists ("current-password"), marked or not. */
   private fun isCurrentPassword(f: FieldNode): Boolean {
-    if (hasHint(f, HINT_NEW_PASSWORD) || f.htmlAutocomplete.equals("new-password", true)) {
-      return false
-    }
+    if (isMarkedNew(f)) return false
     return hasHint(f, HINT_PASSWORD) ||
       f.htmlType.equals("password", true) ||
       f.htmlAutocomplete.equals("current-password", true) ||
       isPasswordInput(f)
   }
 
-  private fun isAnyPassword(f: FieldNode) =
-    isCurrentPassword(f) ||
-      hasHint(f, HINT_NEW_PASSWORD) ||
-      f.htmlAutocomplete.equals("new-password", true)
+  private fun isMarkedCurrent(f: FieldNode) =
+    hasHint(f, HINT_PASSWORD) || f.htmlAutocomplete.equals("current-password", true)
+
+  private fun isAnyPassword(f: FieldNode) = isCurrentPassword(f) || isMarkedNew(f)
+
+  private fun labelHas(f: FieldNode, words: List<String>) = words.any { f.label.contains(it) }
+
+  /**
+   * The role of every password box in [boxes] (which must all be password boxes), by index.
+   *
+   *  1. A box the page marks is believed: `new-password` is NEW, `current-password` is CURRENT.
+   *  2. An unmarked box that comes after a marked NEW box is the "confirm" box of that form: NEW.
+   *     One that comes before it is the old password: CURRENT.
+   *  3. Otherwise, with no marked NEW box on the page, unmarked boxes are guessed, but only when
+   *     there are two or more password boxes (one box is a sign-in, always):
+   *       - a box named like "current", "old" or "existing" is CURRENT, the others NEW;
+   *       - otherwise two boxes are a sign-up with a "confirm" box (both NEW), and three or more
+   *         are a change-password form (the first is CURRENT, the rest NEW).
+   *     A single box named like "new password" or "create a password" is NEW.
+   */
+  fun rolesOf(boxes: List<FieldNode>): Map<Int, Role> {
+    val sorted = boxes.sortedBy { it.index }
+    val roles = HashMap<Int, Role>()
+    for (b in sorted) {
+      if (isMarkedNew(b)) roles[b.index] = Role.NEW else if (isMarkedCurrent(b)) roles[b.index] = Role.CURRENT
+    }
+    val unmarked = sorted.filter { it.index !in roles }
+    if (unmarked.isEmpty()) return roles
+
+    val markedNew = sorted.filter { roles[it.index] == Role.NEW }
+    if (markedNew.isNotEmpty()) {
+      val firstNew = markedNew.first().index
+      for (b in unmarked) roles[b.index] = if (b.index > firstNew) Role.NEW else Role.CURRENT
+      return roles
+    }
+
+    // No box is marked NEW. One box is a sign-in unless its own name says it is a new password.
+    if (sorted.size == 1) {
+      val only = unmarked.single()
+      roles[only.index] = if (NEW_PHRASES.any { only.label.contains(it) }) Role.NEW else Role.CURRENT
+      return roles
+    }
+
+    val named = unmarked.filter { labelHas(it, CURRENT_WORDS) }
+    if (named.isNotEmpty() || roles.containsValue(Role.CURRENT)) {
+      for (b in unmarked) roles[b.index] = if (b in named) Role.CURRENT else Role.NEW
+      return roles
+    }
+    // Nothing is marked and nothing is named: two boxes are a sign-up with a "confirm" box (both
+    // NEW); three or more are a change-password form, where the first one holds the old password.
+    for ((i, b) in unmarked.withIndex()) {
+      roles[b.index] = if (sorted.size >= 3 && i == 0) Role.CURRENT else Role.NEW
+    }
+    return roles
+  }
+
+  /** The roles of the visible password boxes on a screen. */
+  private fun visibleRoles(fields: List<FieldNode>): Map<Int, Role> =
+    rolesOf(fields.filter { it.isUsable && isAnyPassword(it) })
 
   private fun looksLikeUsername(f: FieldNode): Boolean =
     hasHint(f, HINT_USERNAME) ||
@@ -69,6 +141,10 @@ internal object FieldClassifier {
       f.htmlType.equals("email", true) ||
       ((f.inputType and CLASS_MASK) == CLASS_TEXT &&
         (variation(f) == TEXT_VARIATION_EMAIL || variation(f) == TEXT_VARIATION_WEB_EMAIL))
+
+  /** The page or app clearly says this box is a user name (not just an e-mail box). */
+  private fun isMarkedUsername(f: FieldNode): Boolean =
+    hasHint(f, HINT_USERNAME) || f.htmlAutocomplete.equals("username", true)
 
   /** An ordinary text box that could hold a user name when nothing better is known. */
   private fun isPlainText(f: FieldNode): Boolean {
@@ -81,25 +157,26 @@ internal object FieldClassifier {
   }
 
   /**
-   * Finds the login form, or null if this screen is not a plain sign-in form.
+   * Finds the login form, or null if there is nothing to fill here.
    *
-   * Null is also returned for sign-up forms (boxes marked as a NEW password), for screens with
-   * several password boxes and no focus on one of them, and when no password box is usable.
+   * Null is returned for sign-up forms (boxes for a NEW password only), for screens with several
+   * current-password boxes and no focus on one of them, and when no password box is usable.
+   *
+   * On a change-password form (a current box and new boxes) the current box is filled only when
+   * it is the one that was tapped; tapping a new box gets the strong-password suggestion instead.
    */
   fun findLoginForm(fields: List<FieldNode>): LoginForm? {
     val usable = fields.filter { it.isUsable }
-    val passwords = usable.filter { isCurrentPassword(it) }
-    if (passwords.isEmpty()) return null
-    // A form with a "new password" box is a sign-up or change-password form: not for filling.
-    if (usable.any { hasHint(it, HINT_NEW_PASSWORD) || it.htmlAutocomplete.equals("new-password", true) }) {
-      return null
-    }
+    val roles = visibleRoles(fields)
+    val currents = usable.filter { roles[it.index] == Role.CURRENT }
+    if (currents.isEmpty()) return null
+    val hasNewBox = roles.values.any { it == Role.NEW }
     val password =
       when {
-        passwords.size == 1 -> passwords[0]
-        else -> passwords.firstOrNull { it.isFocused } ?: return null
+        hasNewBox -> currents.firstOrNull { it.isFocused } ?: return null
+        currents.size == 1 -> currents[0]
+        else -> currents.firstOrNull { it.isFocused } ?: return null
       }
-
     return LoginForm(password, pickUsername(usable, password))
   }
 
@@ -109,8 +186,34 @@ internal object FieldClassifier {
     return before.lastOrNull { looksLikeUsername(it) } ?: before.lastOrNull { isPlainText(it) }
   }
 
-  private fun isNewPassword(f: FieldNode) =
-    hasHint(f, HINT_NEW_PASSWORD) || f.htmlAutocomplete.equals("new-password", true)
+  /**
+   * The user-name box of a sign-in that is split over two pages (the user name first, the password
+   * on the next page, as Google and Microsoft do), or null.
+   *
+   * It is deliberately strict: the page must have NO password box, and the box must be explicitly
+   * marked as a user name (`username` hint or `autocomplete="username"`). An ordinary e-mail box
+   * (a newsletter form, say) is never offered. The password page that follows is the normal case.
+   */
+  fun findUsernameStep(fields: List<FieldNode>): FieldNode? {
+    val usable = fields.filter { it.isUsable }
+    if (usable.any { isAnyPassword(it) }) return null
+    val marked = usable.filter { isMarkedUsername(it) }
+    return marked.firstOrNull { it.isFocused } ?: marked.singleOrNull()
+  }
+
+  /**
+   * The visible boxes meant for a NEW password: the new box of a sign-up or change-password form
+   * and its "confirm" box. Only these are filled when KiteVault suggests a strong password. A
+   * box that is hidden, disabled or has no size never counts (an invisible box is a classic trick
+   * to steal a filled-in password).
+   */
+  fun findNewPasswordBoxes(fields: List<FieldNode>): List<FieldNode> {
+    val roles = visibleRoles(fields)
+    return fields.filter { it.isUsable && roles[it.index] == Role.NEW }
+  }
+
+  /** True when the visible boxes include one for a NEW password (a sign-up or change-password page). */
+  fun hasNewPasswordBox(fields: List<FieldNode>): Boolean = findNewPasswordBoxes(fields).isNotEmpty()
 
   /**
    * Finds the form to OFFER TO SAVE: a sign-in form, a sign-up form or a change-password form.
@@ -133,12 +236,13 @@ internal object FieldClassifier {
     val passwords = pool.filter { isAnyPassword(it) }
     if (passwords.isEmpty()) return null
 
-    val wanted = passwords.filter { isNewPassword(it) }.ifEmpty { passwords }
+    val roles = rolesOf(passwords)
+    val wanted = passwords.filter { roles[it.index] == Role.NEW }.ifEmpty { passwords }
     val password: FieldNode
     if (values == null) {
       // Nothing typed yet: several current-password boxes need focus to pick one.
       val focused = wanted.firstOrNull { it.isFocused }
-      if (focused == null && wanted.size > 1 && !wanted.all { isNewPassword(it) }) return null
+      if (focused == null && wanted.size > 1 && !wanted.all { roles[it.index] == Role.NEW }) return null
       password = focused ?: wanted.first()
     } else {
       val typed =

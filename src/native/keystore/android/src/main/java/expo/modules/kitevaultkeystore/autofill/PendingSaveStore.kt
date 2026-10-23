@@ -33,10 +33,13 @@ internal class PendingSaveStore(
 ) {
   private val temp = File(file.parentFile, file.name + ".tmp")
 
-  /** Parks a login. A newer save for the same account and place replaces the older one. */
+  /**
+   * Parks a login. A newer save for the same account and place replaces the older one, and so
+   * does the note of a suggested password that the sign-up has now used (see [PendingSaveCodec.replaces]).
+   */
   @Synchronized
   fun add(save: NewSave): PendingSave {
-    val kept = load().filterNot { PendingSaveCodec.sameTarget(it.save, save) }.toMutableList()
+    val kept = load().filterNot { PendingSaveCodec.replaces(save, it.save) }.toMutableList()
     val record = PendingSave(newId(), clock(), save)
     kept.add(record)
     while (kept.size > PendingSaveCodec.MAX_RECORDS) kept.removeAt(0)

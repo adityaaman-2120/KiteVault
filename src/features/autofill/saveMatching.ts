@@ -49,3 +49,12 @@ export function findExistingLogins(
     )
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
+
+// All the saved logins for that place, whatever their user name (newest edit first). Used when
+// the page that was submitted had no user-name box, which is what a change-password page looks
+// like: then the account can only be told from the place. Entries in the Trash are not counted.
+export function findLoginsAtOrigin(entries: readonly Entry[], origin: PendingOrigin): Entry[] {
+  return entries
+    .filter((e) => e.type === 'login' && !isTrashed(e) && isForOrigin(e, origin))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
