@@ -67,15 +67,15 @@ internal class SheetUi(private val activity: Activity) {
     sheet.background =
       GradientDrawable().apply {
         setColor(AutofillStyle.SHEET)
-        val r = dp(28).toFloat()
+        val r = dp(SheetMetrics.SHEET_RADIUS).toFloat()
         cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
       }
-    sheet.setPadding(dp(20), dp(10), dp(20), dp(20))
+    sheet.setPadding(dp(SheetMetrics.SHEET_SIDE), dp(SheetMetrics.SHEET_TOP), dp(SheetMetrics.SHEET_SIDE), dp(SheetMetrics.SHEET_BOTTOM))
     // Taps on the sheet itself must not count as taps outside it.
     sheet.setOnClickListener {}
     // A little room is always left above the sheet, so the dimmed area can be tapped to close it,
     // even when the sheet is as tall as it can be.
-    root.addView(sheet, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply { topMargin = dp(56) })
+    root.addView(sheet, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply { topMargin = dp(SheetMetrics.SHEET_GAP_ABOVE) })
 
     // The grab handle.
     sheet.addView(
@@ -86,9 +86,9 @@ internal class SheetUi(private val activity: Activity) {
         }
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
       },
-      LinearLayout.LayoutParams(dp(40), dp(4)).apply {
+      LinearLayout.LayoutParams(dp(SheetMetrics.HANDLE_W), dp(SheetMetrics.HANDLE_H)).apply {
         gravity = Gravity.CENTER_HORIZONTAL
-        bottomMargin = dp(16)
+        bottomMargin = dp(SheetMetrics.HANDLE_GAP)
       },
     )
 
@@ -103,24 +103,24 @@ internal class SheetUi(private val activity: Activity) {
         setImageResource(R.drawable.kitevault_mark)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
       },
-      LinearLayout.LayoutParams(dp(22), dp(30)),
+      LinearLayout.LayoutParams(dp(SheetMetrics.MARK_W), dp(SheetMetrics.MARK_H)),
     )
     brand.addView(
       TextView(activity).apply {
         text = name()
-        textSize = 19f
+        textSize = SheetMetrics.BRAND_SP
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(AutofillStyle.TEXT)
         letterSpacing = -0.02f
       },
-      LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(10) },
+      LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(SheetMetrics.BRAND_GAP) },
     )
     sheet.addView(brand, LinearLayout.LayoutParams(MATCH, WRAP))
 
     // The pill that says which site or app this is for. Hidden until it is known.
     chip.orientation = LinearLayout.HORIZONTAL
     chip.gravity = Gravity.CENTER_VERTICAL
-    chip.setPadding(dp(10), dp(6), dp(12), dp(6))
+    chip.setPadding(dp(SheetMetrics.CHIP_PAD_START), dp(SheetMetrics.CHIP_PAD_V), dp(SheetMetrics.CHIP_PAD_END), dp(SheetMetrics.CHIP_PAD_V))
     chip.background = GradientDrawable().apply {
       setColor(AutofillStyle.CHIP)
       cornerRadius = dp(999).toFloat()
@@ -128,17 +128,17 @@ internal class SheetUi(private val activity: Activity) {
     chip.visibility = View.GONE
     chipIcon.setImageResource(R.drawable.kitevault_ic_lock)
     chipIcon.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-    chip.addView(chipIcon, LinearLayout.LayoutParams(dp(14), dp(14)))
-    chipText.textSize = 13f
+    chip.addView(chipIcon, LinearLayout.LayoutParams(dp(SheetMetrics.CHIP_ICON), dp(SheetMetrics.CHIP_ICON)))
+    chipText.textSize = SheetMetrics.CHIP_SP
     chipText.setTextColor(AutofillStyle.MUTED)
     chipText.maxLines = 1
     chipText.ellipsize = TextUtils.TruncateAt.END
-    chip.addView(chipText, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(6) })
+    chip.addView(chipText, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(SheetMetrics.CHIP_GAP) })
     sheet.addView(
       chip,
       LinearLayout.LayoutParams(WRAP, WRAP).apply {
-        topMargin = dp(12)
-        bottomMargin = dp(4)
+        topMargin = dp(SheetMetrics.CHIP_TOP)
+        bottomMargin = dp(SheetMetrics.CHIP_BOTTOM)
       },
     )
 
@@ -148,11 +148,11 @@ internal class SheetUi(private val activity: Activity) {
     scroller.isVerticalScrollBarEnabled = false
     scroller.overScrollMode = View.OVER_SCROLL_NEVER
     scroller.addView(content, FrameLayout.LayoutParams(MATCH, WRAP))
-    sheet.addView(scroller, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
+    sheet.addView(scroller, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(SheetMetrics.CONTENT_TOP) })
 
     // Keep the sheet clear of the navigation bar and the keyboard.
     root.setOnApplyWindowInsetsListener { _, insets ->
-      sheet.setPadding(dp(20), dp(10), dp(20), dp(20) + bottomInset(insets))
+      sheet.setPadding(dp(SheetMetrics.SHEET_SIDE), dp(SheetMetrics.SHEET_TOP), dp(SheetMetrics.SHEET_SIDE), dp(SheetMetrics.SHEET_BOTTOM) + bottomInset(insets))
       insets
     }
 
@@ -160,7 +160,7 @@ internal class SheetUi(private val activity: Activity) {
 
     // It slides up and fades in. (If the phone has animations turned off, this is instant.)
     sheet.alpha = 0f
-    sheet.translationY = dp(48).toFloat()
+    sheet.translationY = dp(SheetMetrics.SLIDE).toFloat()
     sheet.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
   }
 
@@ -214,13 +214,13 @@ internal class SheetUi(private val activity: Activity) {
     add(
       TextView(activity).apply {
         this.text = text
-        textSize = 22f
+        textSize = SheetMetrics.TITLE_SP
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(AutofillStyle.TEXT)
         letterSpacing = -0.01f
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isAccessibilityHeading = true
       },
-      bottomDp = 8,
+      bottomDp = SheetMetrics.TITLE_GAP,
     )
   }
 
@@ -228,11 +228,11 @@ internal class SheetUi(private val activity: Activity) {
     add(
       TextView(activity).apply {
         this.text = text
-        textSize = 15f
-        setLineSpacing(0f, 1.15f)
+        textSize = SheetMetrics.BODY_SP
+        setLineSpacing(0f, SheetMetrics.BODY_LINE)
         setTextColor(AutofillStyle.MUTED)
       },
-      bottomDp = 16,
+      bottomDp = SheetMetrics.BODY_GAP,
     )
   }
 
@@ -241,10 +241,10 @@ internal class SheetUi(private val activity: Activity) {
     add(
       TextView(activity).apply {
         this.text = text
-        textSize = 13f
+        textSize = SheetMetrics.NOTE_SP
         setTextColor(AutofillStyle.MUTED)
       },
-      bottomDp = 12,
+      bottomDp = SheetMetrics.NOTE_GAP,
     )
   }
 
@@ -262,10 +262,10 @@ internal class SheetUi(private val activity: Activity) {
             imageTintList = ColorStateList.valueOf(tint)
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
           },
-          FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER),
+          FrameLayout.LayoutParams(dp(SheetMetrics.MESSAGE_ICON), dp(SheetMetrics.MESSAGE_ICON), Gravity.CENTER),
         )
       }
-    content.addView(circle, LinearLayout.LayoutParams(dp(56), dp(56)).apply { bottomMargin = dp(14) })
+    content.addView(circle, LinearLayout.LayoutParams(dp(SheetMetrics.MESSAGE_CIRCLE), dp(SheetMetrics.MESSAGE_CIRCLE)).apply { bottomMargin = dp(SheetMetrics.MESSAGE_GAP) })
     title(heading)
     body(sentence)
   }
@@ -276,23 +276,23 @@ internal class SheetUi(private val activity: Activity) {
       LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
-        setPadding(0, dp(24), 0, dp(24))
+        setPadding(0, dp(SheetMetrics.LOADING_PAD), 0, dp(SheetMetrics.LOADING_PAD))
       }
     box.addView(
       ProgressBar(activity).apply {
         isIndeterminate = true
         indeterminateTintList = ColorStateList.valueOf(AutofillStyle.AMBER)
       },
-      LinearLayout.LayoutParams(dp(40), dp(40)),
+      LinearLayout.LayoutParams(dp(SheetMetrics.SPINNER), dp(SheetMetrics.SPINNER)),
     )
     box.addView(
       TextView(activity).apply {
         this.text = text
-        textSize = 15f
+        textSize = SheetMetrics.LOADING_SP
         gravity = Gravity.CENTER
         setTextColor(AutofillStyle.MUTED)
       },
-      LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(12) },
+      LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(SheetMetrics.LOADING_GAP) },
     )
     add(box)
   }
@@ -307,24 +307,24 @@ internal class SheetUi(private val activity: Activity) {
         ButtonKind.SECONDARY -> AutofillStyle.CHIP to AutofillStyle.TEXT
         ButtonKind.TEXT -> Color.TRANSPARENT to AutofillStyle.MUTED
       }
-    val radius = dp(26).toFloat()
+    val radius = dp(SheetMetrics.BUTTON_RADIUS).toFloat()
     val shape = { GradientDrawable().apply { setColor(fill); cornerRadius = radius } }
     val mask = GradientDrawable().apply { setColor(Color.BLACK); cornerRadius = radius }
     add(
       Button(activity).apply {
         this.text = text
         isAllCaps = false
-        textSize = 16f
+        textSize = SheetMetrics.BUTTON_SP
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(label)
         stateListAnimator = null
         background = RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), shape(), mask)
-        minHeight = dp(52)
-        minimumHeight = dp(52)
-        setPadding(dp(20), 0, dp(20), 0)
+        minHeight = dp(SheetMetrics.BUTTON_H)
+        minimumHeight = dp(SheetMetrics.BUTTON_H)
+        setPadding(dp(SheetMetrics.BUTTON_PAD), 0, dp(SheetMetrics.BUTTON_PAD), 0)
         setOnClickListener { onClick() }
       },
-      bottomDp = if (kind == ButtonKind.TEXT) 0 else 10,
+      bottomDp = if (kind == ButtonKind.TEXT) 0 else SheetMetrics.BUTTON_GAP,
     )
   }
 
@@ -334,14 +334,14 @@ internal class SheetUi(private val activity: Activity) {
       LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(12), dp(12), dp(12), dp(12))
-        minimumHeight = dp(64)
+        setPadding(dp(SheetMetrics.ROW_PAD), dp(SheetMetrics.ROW_PAD), dp(SheetMetrics.ROW_PAD), dp(SheetMetrics.ROW_PAD))
+        minimumHeight = dp(SheetMetrics.ROW_MIN)
         isClickable = true
         isFocusable = true
         background = RippleDrawable(
           ColorStateList.valueOf(0x33FFFFFF),
-          GradientDrawable().apply { setColor(AutofillStyle.ROW); cornerRadius = dp(18).toFloat() },
-          GradientDrawable().apply { setColor(Color.BLACK); cornerRadius = dp(18).toFloat() },
+          GradientDrawable().apply { setColor(AutofillStyle.ROW); cornerRadius = dp(SheetMetrics.ROW_RADIUS).toFloat() },
+          GradientDrawable().apply { setColor(Color.BLACK); cornerRadius = dp(SheetMetrics.ROW_RADIUS).toFloat() },
         )
         setOnClickListener { onClick() }
       }
@@ -351,13 +351,13 @@ internal class SheetUi(private val activity: Activity) {
       FrameLayout(activity).apply {
         background = GradientDrawable().apply {
           setColor(Color.HSVToColor(floatArrayOf(hue, 0.5f, 0.62f)))
-          cornerRadius = dp(14).toFloat()
+          cornerRadius = dp(SheetMetrics.AVATAR_RADIUS).toFloat()
         }
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         addView(
           TextView(activity).apply {
             text = AutofillStyle.avatarLetter(title)
-            textSize = 19f
+            textSize = SheetMetrics.AVATAR_SP
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
@@ -365,14 +365,14 @@ internal class SheetUi(private val activity: Activity) {
           FrameLayout.LayoutParams(MATCH, MATCH),
         )
       },
-      LinearLayout.LayoutParams(dp(44), dp(44)),
+      LinearLayout.LayoutParams(dp(SheetMetrics.AVATAR), dp(SheetMetrics.AVATAR)),
     )
 
     val texts = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     texts.addView(
       TextView(activity).apply {
         text = title
-        textSize = 16f
+        textSize = SheetMetrics.ROW_TITLE_SP
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(AutofillStyle.TEXT)
         maxLines = 1
@@ -383,14 +383,14 @@ internal class SheetUi(private val activity: Activity) {
       texts.addView(
         TextView(activity).apply {
           text = username
-          textSize = 14f
+          textSize = SheetMetrics.ROW_SUB_SP
           setTextColor(AutofillStyle.MUTED)
           maxLines = 1
           ellipsize = TextUtils.TruncateAt.END
         },
       )
     }
-    row.addView(texts, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(14) })
+    row.addView(texts, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(SheetMetrics.ROW_TEXT_GAP) })
 
     row.addView(
       ImageView(activity).apply {
@@ -398,13 +398,13 @@ internal class SheetUi(private val activity: Activity) {
         imageTintList = ColorStateList.valueOf(AutofillStyle.MUTED)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
       },
-      LinearLayout.LayoutParams(dp(22), dp(22)),
+      LinearLayout.LayoutParams(dp(SheetMetrics.CHEVRON), dp(SheetMetrics.CHEVRON)),
     )
     return row
   }
 
   /** Adds a row made by [loginRow] to the content, with a gap under it. */
-  fun addRow(row: View) = add(row, bottomDp = 10)
+  fun addRow(row: View) = add(row, bottomDp = SheetMetrics.ROW_GAP)
 
   // --- The password -------------------------------------------------------------------------------
 
@@ -413,18 +413,18 @@ internal class SheetUi(private val activity: Activity) {
     val box =
       TextView(activity).apply {
         typeface = Typeface.MONOSPACE
-        textSize = 20f
+        textSize = SheetMetrics.PASSWORD_SP
         gravity = Gravity.CENTER
         letterSpacing = 0.04f
         setLineSpacing(0f, 1.2f)
-        setPadding(dp(16), dp(20), dp(16), dp(20))
+        setPadding(dp(SheetMetrics.PASSWORD_PAD_H), dp(SheetMetrics.PASSWORD_PAD_V), dp(SheetMetrics.PASSWORD_PAD_H), dp(SheetMetrics.PASSWORD_PAD_V))
         background = GradientDrawable().apply {
           setColor(AutofillStyle.FIELD)
-          cornerRadius = dp(18).toFloat()
+          cornerRadius = dp(SheetMetrics.PASSWORD_RADIUS).toFloat()
         }
       }
     setPassword(box, password)
-    add(box, bottomDp = 10)
+    add(box, bottomDp = SheetMetrics.PASSWORD_GAP)
     return box
   }
 
@@ -446,11 +446,11 @@ internal class SheetUi(private val activity: Activity) {
     val line =
       TextView(activity).apply {
         text = AutofillStyle.passwordSummary(password)
-        textSize = 13f
+        textSize = SheetMetrics.SUMMARY_SP
         setTextColor(AutofillStyle.MINT)
         gravity = Gravity.CENTER
       }
-    add(line, bottomDp = 16)
+    add(line, bottomDp = SheetMetrics.SUMMARY_GAP)
     return line
   }
 
@@ -468,14 +468,14 @@ internal class SheetUi(private val activity: Activity) {
     for ((i, pair) in lengthChips.withIndex()) {
       lengthRow.addView(
         pair.second,
-        LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (i > 0) marginStart = dp(8) },
+        LinearLayout.LayoutParams(0, dp(SheetMetrics.OPTION_H), 1f).apply { if (i > 0) marginStart = dp(SheetMetrics.OPTION_ROW_GAP) },
       )
     }
     box.addView(
       lengthRow,
       LinearLayout.LayoutParams(MATCH, WRAP).apply {
-        topMargin = dp(6)
-        bottomMargin = dp(12)
+        topMargin = dp(SheetMetrics.OPTION_LABEL_GAP)
+        bottomMargin = dp(SheetMetrics.OPTION_GAP * 2)
       },
     )
 
@@ -485,7 +485,7 @@ internal class SheetUi(private val activity: Activity) {
     }
     symbolsRow.addView(smallLabel("Symbols  ! @ # \$ %"), LinearLayout.LayoutParams(0, WRAP, 1f))
     val symbolsChip = optionChip()
-    symbolsRow.addView(symbolsChip, LinearLayout.LayoutParams(dp(72), dp(44)))
+    symbolsRow.addView(symbolsChip, LinearLayout.LayoutParams(dp(SheetMetrics.SYMBOLS_W), dp(SheetMetrics.OPTION_H)))
     box.addView(symbolsRow, LinearLayout.LayoutParams(MATCH, WRAP))
 
     fun refresh() {
@@ -512,20 +512,20 @@ internal class SheetUi(private val activity: Activity) {
       onChange(current)
     }
     refresh()
-    add(box, bottomDp = 16)
+    add(box, bottomDp = SheetMetrics.OPTIONS_BOTTOM)
   }
 
   private fun smallLabel(text: String): TextView =
     TextView(activity).apply {
       this.text = text
-      textSize = 13f
+      textSize = SheetMetrics.OPTION_LABEL_SP
       setTextColor(AutofillStyle.MUTED)
     }
 
   private fun optionChip(): TextView =
     TextView(activity).apply {
       gravity = Gravity.CENTER
-      textSize = 15f
+      textSize = SheetMetrics.OPTION_SP
       typeface = Typeface.DEFAULT_BOLD
       isClickable = true
       isFocusable = true
@@ -535,7 +535,7 @@ internal class SheetUi(private val activity: Activity) {
   private fun styleChip(chip: TextView, on: Boolean) {
     chip.background = GradientDrawable().apply {
       setColor(if (on) AutofillStyle.AMBER else AutofillStyle.CHIP)
-      cornerRadius = dp(22).toFloat()
+      cornerRadius = dp(SheetMetrics.OPTION_RADIUS).toFloat()
     }
     chip.setTextColor(if (on) AutofillStyle.ON_AMBER else AutofillStyle.TEXT)
   }
@@ -548,33 +548,33 @@ internal class SheetUi(private val activity: Activity) {
         this.hint = hint
         setHintTextColor(AutofillStyle.MUTED)
         setTextColor(AutofillStyle.TEXT)
-        textSize = 16f
+        textSize = SheetMetrics.SEARCH_SP
         inputType = InputType.TYPE_CLASS_TEXT
         setSingleLine()
-        setPadding(dp(16), dp(14), dp(16), dp(14))
+        setPadding(dp(SheetMetrics.SEARCH_PAD_H), dp(SheetMetrics.SEARCH_PAD_V), dp(SheetMetrics.SEARCH_PAD_H), dp(SheetMetrics.SEARCH_PAD_V))
         background = GradientDrawable().apply {
           setColor(AutofillStyle.FIELD)
-          cornerRadius = dp(16).toFloat()
+          cornerRadius = dp(SheetMetrics.SEARCH_RADIUS).toFloat()
         }
         addTextChangedListener(watcher)
       }
-    add(field, bottomDp = 12)
+    add(field, bottomDp = SheetMetrics.SEARCH_GAP)
     return field
   }
 
   /** The column to put a list of rows into. The whole sheet scrolls, so the list needs no scroller. */
   fun list(): LinearLayout {
     val column = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-    content.addView(column, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(10) })
+    content.addView(column, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(SheetMetrics.ROW_GAP) })
     return column
   }
 
   fun emptyLine(text: String): TextView =
     TextView(activity).apply {
       this.text = text
-      textSize = 15f
+      textSize = SheetMetrics.EMPTY_SP
       gravity = Gravity.CENTER
-      setPadding(0, dp(24), 0, dp(24))
+      setPadding(0, dp(SheetMetrics.EMPTY_PAD), 0, dp(SheetMetrics.EMPTY_PAD))
       setTextColor(AutofillStyle.MUTED)
     }
 

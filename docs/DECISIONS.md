@@ -660,3 +660,9 @@ Details and procedures: `docs/RELEASE_POLISH.md`.
 - A second "Suggest strong password" row on every sign-in page: it would clutter every sign-in, and the cancel-the-fingerprint sheet covers the single-box sign-up.
 
 **Tested:** 188 Kotlin unit tests (the guess, the pages above as whole scenarios, the generator and its options, origin rules, the saved notes) and the JavaScript tests (the save screen for each change-password case, the Autofill status screen). Source checks keep the rules (no logging, no network, no vault in the strong-password code, only `SecureRandom`). **Not tested on a phone or an emulator** (this computer has neither): the real behavior of Chrome and other browsers on real sites, and how every screen looks. See `docs/MANUAL_TEST_PLAN.md` 14.11 to 14.24.
+
+### Update (2026-10-23): a smaller sheet over other apps
+
+- The sheet shown over other apps (and the rows in the autofill list) is smaller: title 18 sp (was 22), body 13.5 sp (was 15), buttons 46 dp high with 15 sp text (were 52 and 16), login rows 52 dp (were 64) with a 36 dp avatar (was 44), the password in 16 sp (was 20), options 40 dp high (were 44), tighter spacing, side padding 16 dp (was 20), corners 22 dp (was 28). In the autofill list the row is 48 dp high with a 16 x 22 dp kite, 14 sp and 12 sp text.
+- **Why compact:** it appears on top of somebody else's app, so it should take as little of that screen as it can. **Limits that stay:** nothing you tap is below 44 dp (buttons), 48 dp (rows) or 40 dp (option chips), and no text is below 12 sp. Every size lives in `SheetMetrics`, and `SheetMetricsTest` fails if a change breaks these limits. A source test checks that `SheetUi` has no plain sizes of its own.
+- Not seen on a phone: if it now looks too small or too tight, change the numbers in `SheetMetrics` (and the two layout files); the tests say how far it can go.
