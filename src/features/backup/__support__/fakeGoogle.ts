@@ -60,7 +60,9 @@ export function parseMultipart(body: Uint8Array, boundary: string) {
 export function createFakeDrive() {
   const files = new Map<string, StoredFile>();
   let nextId = 1;
-  let clock = Date.UTC(2026, 9, 22, 10, 0, 0);
+  // Starts at the real time: the service compares file times with Date.now(), so a fixed date
+  // made these tests fail once the calendar moved on.
+  let clock = Date.now();
 
   const drive = {
     files,

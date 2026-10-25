@@ -240,3 +240,88 @@ gradlew :keystore:testDebugUnitTest :app:processReleaseMainManifest
 ```
 
 Delete the generated `android/` folder afterwards; it is not part of the repository.
+
+---
+
+## 10. Final pre-release review (2026-10-24)
+
+Same bias warning as above: this was done by the assistant that wrote most of the code.
+
+### 10.1 CLAUDE.md rules
+
+| #   | Rule                              | Status                                  | Evidence and caveat                                                                                                                                                                                                                                                                                                    |
+| --- | --------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | No custom cryptography            | Met                                     | Only `react-native-quick-crypto` (OpenSSL) in `src/crypto/`, Android Keystore and `SecureRandom` in Kotlin. The vault _design_ (key wrap, format) is ours and is what an expert must review.                                                                                                                           |
+| 2   | Never log secrets                 | Met                                     | Zero `console.*` / `Log.*` / `println` in app code; enforced by `securityRegression.test.ts` and `autofillSources.test.ts`.                                                                                                                                                                                            |
+| 3   | No analytics / network except two | Met in code, **not proven at run time** | Only the Drive and `api.pwnedpasswords.com` hosts exist in code (tested). ML Kit (QR scanner) may send data to Google; the workaround is **unverified** (F-01). Google Play services also talk to Google for Sign-In.                                                                                                  |
+| 4   | Decrypted data only in memory     | Met, with documented exceptions         | Up to 3 pending autofill saves sit on disk, sealed by a Keystore key without fingerprint, for 10 minutes (F-17). A copied password stays on the clipboard until its timer. A CSV or .kvault export the user asks for is a cache file until shared, then deleted. Strings cannot be wiped from JS or JVM memory (F-18). |
+| 5   | No `Math.random`                  | Met                                     | Searched app and plugins; a test enforces it.                                                                                                                                                                                                                                                                          |
+| 6   | AES-256-GCM, fresh IV, Argon2id   | Met                                     | `cipher.ts`: random 12-byte IV per call. `kdf.ts`: Argon2id, 64 MiB, 3 passes, with a floor against tampered headers.                                                                                                                                                                                                  |
+| 7   | Master password never stored      | Met                                     | In no file or preference (a test lists the settings keys). The biometric blob holds the vault key, not the password.                                                                                                                                                                                                   |
+| 8   | `allowBackup` false               | Met                                     | `app.json`, plugin `withNoBackup`, merged release manifest read on 2026-10-24.                                                                                                                                                                                                                                         |
+
+### 10.2 Uninstall and reinstall
+
+What the code does: the vault, settings, biometric blob and pending-save file are all in the app's private
+`filesDir` (`Paths.document`, `context.filesDir`), and the two Keystore keys belong to the app. Android deletes
+the private folder and the Keystore keys when the app is uninstalled. `allowBackup="false"` stops Android Auto
+Backup and `adb backup`. `android:dataExtractionRules` (Android 12+, cloud backup and device transfer) and
+`android:fullBackupContent` (Android 11 and older) exclude every storage domain as a second layer. Config tests
+check all of this.
+
+What survives a reinstall, by design: the optional encrypted backup in the user's own Google Drive app folder
+(restoring needs the master password), and the Google account sign-in held by Google Play services. Settings are
+gone, so backup is off until the user turns it on again.
+
+**Not verified on a phone.** To prove it: create a vault with biometrics on; `adb shell bmgr backupnow
+com.kitelux.kitevault` must report that backup is not allowed; uninstall; reinstall; you must see Welcome with
+nothing restored (`MANUAL_TEST_PLAN.md` section 10). Repeat on a build installed from Play.
+
+### 10.3 Checks run today
+
+TypeScript: pass. ESLint: pass. Jest: **1,559 tests, 0 failures** after the fix below. Kotlin unit tests (Gradle):
+build successful. Release manifest merged and read: permissions as expected, target SDK 36.
+
+Found and fixed today: 5 Drive-backup tests failed with "expected 1 file, found 2". Cause: the test's fake Drive
+clock was a fixed date (22 Oct 2026) while the service compares file times with the real clock, so two days later an
+automatic backup no longer counted as "just made" and created a second version. **The app was right; the test clock
+was stale.** The fake clock now starts at the real time.
+
+### 10.4 Remaining risks and limits
+
+- **Not run on a phone since the autofill, strong-password and cloud-backup work.** Unit tests and source checks only.
+- **Open findings F-11 to F-17** (section 2). Most important: F-11 (vault header not authenticated, rollback possible
+  for someone who can write the file), F-12 (screen protection set from JavaScript, fails open), F-13 (no tap-jack
+  guard on the main screens).
+- **F-01 unverified:** the "no analytics" claim is not proven until the network capture is done.
+- **Autofill depends on browsers reporting the page address honestly** and on a hand-made trusted-browser list.
+- **Release build never inspected:** no R8 or Hermes bundle check, no release APK run.
+- **No certificate pinning** (normal TLS). Root detection is only a hint.
+- **A compromised Google account** cannot read the backup, but could delete it or restore an older version. The
+  master password strength is the only protection of its content.
+- **Forgotten master password and lost recovery key mean the data is lost**, by design.
+- **Play side:** the closed-test rule, 16 KB page-size support not confirmed, Data Safety answers are a best reading.
+- **Supply chain:** `npm audit` shows only build-tool advisories with no fix. Nobody has audited the dependencies' code.
+
+### 10.5 External review: yes, before launch
+
+Honest answer: **yes, an external security professional should review this before it holds anyone else's
+passwords.** I wrote the code and cannot find the mistakes I cannot imagine. In order of value:
+
+1. **Cryptography review (most valuable, days):** vault format and key hierarchy, header and body binding (F-11) and
+   a format v2 design, the recovery-key wrap, Argon2id parameters and floor, AES-GCM with random 96-bit IVs, the
+   biometric key wrapping and its invalidation policy, and `react-native-quick-crypto`'s Argon2id correctness.
+2. **Android penetration test (days):** on a rooted and a non-rooted phone. Exported `MainActivity` and autofill
+   service, the unlock activity under overlays, intent fuzzing, file providers, backup extraction (`adb`), Frida
+   instrumentation to see what an attacker inside the process gets and when it is wiped, screen-capture and
+   accessibility-service attacks, release build (R8, Hermes bytecode) leftovers.
+3. **Autofill review (days):** phishing and spoofing against real browsers and apps (AutoSpill class, look-alike
+   domains, iframes, in-app browsers), the trusted-browser certificate list, the Public Suffix List update process,
+   the strong-password sheet and the unmarked-page guess in `FieldClassifier`.
+4. **Network and privacy review (hours):** a capture of the release build, ML Kit and Data Transport behaviour (F-01),
+   Google Sign-In and Drive scopes, and the wording of the privacy policy, Data Safety form and "no analytics" text.
+5. **Supply chain and build pipeline (hours to a day):** lockfile policy, EAS credential custody, who can sign and
+   publish, dependency update process.
+6. **Re-test** after every fix to F-11 to F-15.
+
+A cheaper first step if budget is tight: items 1 and 4 only, and launch to a small closed group using test data.
