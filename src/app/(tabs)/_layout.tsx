@@ -5,25 +5,21 @@ import { TabIcon } from '@/components';
 import { SwipeBetweenTabs } from '@/components/SwipeBetweenTabs';
 import { useTheme } from '@/theme';
 
-// A 3D carousel turn. The page you leave tilts away on its outer edge while sliding
-// aside, shrinking and fading; the new page tilts in the same way from the other side and settles
-// flat. Progress is -1 for a page left of the active one, 0 on it, 1 right of it.
+// A plain, gradual slide like the other screens: the page you leave and the page you open move
+// side by side, together, one full screen width. Progress is -1 for a page left of the active one,
+// 0 on it, 1 right of it.
 const slideScenes = ({ current }: { current: { progress: Animated.Value } }) => {
   const { width } = Dimensions.get('window');
-  const at = (outputRange: (number | string)[]) =>
-    current.progress.interpolate({
-      inputRange: [-1, 0, 1],
-      outputRange,
-      extrapolate: 'clamp', // the spring below may overshoot a little; never go past the ends
-    });
   return {
     sceneStyle: {
-      opacity: at([0, 1, 0]),
       transform: [
-        { perspective: 1200 },
-        { translateX: at([-width * 0.55, 0, width * 0.55]) },
-        { rotateY: at(['-38deg', '0deg', '38deg']) },
-        { scale: at([0.86, 1, 0.86]) },
+        {
+          translateX: current.progress.interpolate({
+            inputRange: [-1, 0, 1],
+            outputRange: [-width, 0, width],
+            extrapolate: 'clamp',
+          }),
+        },
       ],
     },
   };
@@ -50,8 +46,11 @@ export default function TabsLayout() {
         lazy: false,
         animation: 'shift',
         sceneStyleInterpolator: slideScenes,
-        // A spring instead of a fixed-time slide: quick start, soft landing.
-        transitionSpec: { animation: 'spring', config: { stiffness: 190, damping: 24, mass: 1 } },
+        // A spring that does not overshoot: a steady start, then a soft stop.
+        transitionSpec: {
+          animation: 'spring',
+          config: { stiffness: 280, damping: 32, mass: 1, overshootClamping: true },
+        },
         headerStyle: { backgroundColor: colors.header },
         headerTintColor: colors.onHeader,
         headerShadowVisible: false,

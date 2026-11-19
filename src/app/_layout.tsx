@@ -105,7 +105,11 @@ export default function RootLayout() {
         </Stack.Protected>
         <Stack.Protected guard={status === 'unlocked'}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="entry/new" options={{ title: 'New entry' }} />
+          {/* Slides in from the right, whatever the Android version's own default is. */}
+          <Stack.Screen
+            name="entry/new"
+            options={{ title: 'New entry', animation: 'slide_from_right' }}
+          />
           <Stack.Screen name="entry/[id]" options={{ title: 'Entry' }} />
           <Stack.Screen name="entry/edit/[id]" options={{ title: 'Edit entry' }} />
           <Stack.Screen name="entry/totp/[id]" options={{ title: 'Two-factor code' }} />

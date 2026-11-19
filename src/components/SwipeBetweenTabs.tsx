@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import { PanResponder, useWindowDimensions, View } from 'react-native';
 
 // Swipe sideways to move between pages. Plain JavaScript (PanResponder), so it needs no new native
@@ -11,7 +11,7 @@ import { PanResponder, useWindowDimensions, View } from 'react-native';
 export type TabName = 'vault' | 'quick-add' | 'generator' | 'settings';
 export const ROW: TabName[] = ['quick-add', 'vault', 'generator', 'settings'];
 
-const MIN_DISTANCE = 60; // px a swipe must travel
+const MIN_DISTANCE = 48; // px a swipe must travel
 const MIN_SPEED = 0.5; // or px/ms for a quick flick
 const EDGE = 28; // px from the screen edge left to Android's own back gesture
 
@@ -45,24 +45,33 @@ type Props = {
 
 export function SwipeBetweenTabs({ current, onGo, children }: Props) {
   const { width } = useWindowDimensions();
+  // The page changes as soon as the swipe is long enough, while the finger is still down, so the
+  // app answers right away; this makes sure it happens only once per swipe.
+  const done = useRef(false);
 
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        // Asked only after the finger moved and no child (a scroller, a slider) claimed it:
-        // mostly sideways, and clearly more sideways than up or down.
-        onMoveShouldSetPanResponder: (_e, g) =>
-          lockCount === 0 && Math.abs(g.dx) > 16 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
-        // Another view took over (a horizontal list started scrolling): do nothing.
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderRelease: (_e, g) => {
-          if (lockCount > 0) return;
-          const target = swipeTarget(current, g.dx, g.vx, g.x0, width);
-          if (target) onGo(target);
-        },
-      }),
-    [current, onGo, width],
-  );
+  const responder = useMemo(() => {
+    const go = (dx: number, vx: number, x0: number) => {
+      if (done.current || lockCount > 0) return;
+      const target = swipeTarget(current, dx, vx, x0, width);
+      if (!target) return;
+      done.current = true;
+      onGo(target);
+    };
+    return PanResponder.create({
+      // Asked only after the finger moved and no child (a scroller, a slider) claimed it:
+      // mostly sideways, and clearly more sideways than up or down.
+      onMoveShouldSetPanResponder: (_e, g) =>
+        lockCount === 0 && Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+      onPanResponderGrant: () => {
+        done.current = false;
+      },
+      onPanResponderMove: (_e, g) => go(g.dx, g.vx, g.x0),
+      // Another view took over (a horizontal list started scrolling): do nothing.
+      onPanResponderTerminationRequest: () => false,
+      // A quick flick may only be recognised when the finger lifts.
+      onPanResponderRelease: (_e, g) => go(g.dx, g.vx, g.x0),
+    });
+  }, [current, onGo, width]);
 
   return (
     <View style={{ flex: 1 }} {...responder.panHandlers}>
