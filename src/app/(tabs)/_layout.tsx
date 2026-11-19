@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Animated, Dimensions } from 'react-native';
+import { Animated, Dimensions, View } from 'react-native';
 
 import { TabIcon } from '@/components';
 import { SwipeBetweenTabs } from '@/components/SwipeBetweenTabs';
@@ -23,11 +23,16 @@ const slideScenes = ({ current }: { current: { progress: Animated.Value } }) => 
   };
 };
 
+// Quick add is listed first (it sits left of Vault), but the app must open on Vault.
+export const unstable_settings = { initialRouteName: 'vault' };
+
 export default function TabsLayout() {
   const { colors, typography } = useTheme();
 
   return (
     <Tabs
+      // Back goes to Vault.
+      backBehavior="initialRoute"
       // Swipe sideways to move between the tabs.
       screenLayout={({ route, navigation, children }) => (
         <SwipeBetweenTabs current={route.name} onGo={(tab) => navigation.navigate(tab)}>
@@ -57,6 +62,20 @@ export default function TabsLayout() {
         tabBarLabelStyle: typography.label,
       }}
     >
+      <Tabs.Screen
+        name="quick-add"
+        options={{
+          title: 'Quick add',
+          // Reached by swiping right on the Vault tab (it sits left of Vault), so it gets no button in the tab bar.
+          // Do NOT use the null-href shortcut for this: Expo Router turns it into "hidden", and a hidden
+          // tab cannot be shown; opening it bounces straight back to the first tab.
+          tabBarButton: () => <View style={{ width: 0, height: 0 }} />,
+          // The bar still gives every tab a share of its width; this takes this one out of the row,
+          // so only the three real tabs are spread across the bar.
+          tabBarItemStyle: { display: 'none' },
+          headerShown: false,
+        }}
+      />
       <Tabs.Screen
         name="vault"
         options={{

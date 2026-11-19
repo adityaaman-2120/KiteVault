@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme';
 import type { EntryType } from '@/vault';
 
-const CHOICES: { type: EntryType; label: string; hint: string; icon: string }[] = [
+export const ADD_CHOICES: { type: EntryType; label: string; hint: string; icon: string }[] = [
   { type: 'login', label: 'Login', hint: 'Website, username and password', icon: '🔑' },
   { type: 'note', label: 'Secure note', hint: 'Private text only you can read', icon: '📝' },
   { type: 'card', label: 'Card', hint: 'Payment card details', icon: '💳' },
@@ -60,7 +60,7 @@ export function AddEntrySheet({ visible, onClose, onPick }: Props) {
             <Text accessibilityRole="header" style={[typography.heading, { color: colors.text }]}>
               Add to your vault
             </Text>
-            {CHOICES.map((choice) => (
+            {ADD_CHOICES.map((choice) => (
               <Pressable
                 key={choice.type}
                 accessibilityRole="button"

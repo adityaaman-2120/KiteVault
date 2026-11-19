@@ -1,11 +1,15 @@
 import { useMemo, type ReactNode } from 'react';
 import { PanResponder, useWindowDimensions, View } from 'react-native';
 
-// Swipe left to go to the next tab, right to go back. Plain JavaScript (PanResponder), so it needs
-// no new native module and no new app build.
+// Swipe sideways to move between pages. Plain JavaScript (PanResponder), so it needs no new native
+// module and no new app build.
 
-// The tab order must match the order of the <Tabs.Screen> entries.
-export const TAB_ORDER = ['vault', 'generator', 'settings'] as const;
+// The pages sit in a row like a normal pager: Quick add, Vault, Generator, Settings. Dragging a
+// finger left shows the page to the right, dragging right shows the page to the left. Quick add
+// has no button in the tab bar (only Vault, Generator and Settings do). The order must match the
+// <Tabs.Screen> order in the tabs layout, which also makes each slide go the right way.
+export type TabName = 'vault' | 'quick-add' | 'generator' | 'settings';
+export const ROW: TabName[] = ['quick-add', 'vault', 'generator', 'settings'];
 
 const MIN_DISTANCE = 60; // px a swipe must travel
 const MIN_SPEED = 0.5; // or px/ms for a quick flick
@@ -18,25 +22,24 @@ export const lockTabSwipe = () => void lockCount++;
 export const unlockTabSwipe = () =>
   void setTimeout(() => (lockCount = Math.max(0, lockCount - 1)), 300);
 
-// Where a swipe should go: swiping left (negative dx) goes forward, right goes back. Pure, so it
-// can be tested without a screen. Returns null when there is nowhere to go or the move is too small.
+// Where a swipe should go (swiping left means a negative dx). Pure, so it can be tested without a
+// screen. Returns null when that swipe leads nowhere or the move is too small.
 export function swipeTarget(
   current: string,
   dx: number,
   vx: number,
   startX: number,
   width: number,
-): (typeof TAB_ORDER)[number] | null {
+): TabName | null {
   if (startX < EDGE || startX > width - EDGE) return null;
   if (Math.abs(dx) < MIN_DISTANCE && Math.abs(vx) < MIN_SPEED) return null;
-  const at = TAB_ORDER.indexOf(current as (typeof TAB_ORDER)[number]);
-  if (at < 0) return null;
-  return TAB_ORDER[at + (dx < 0 ? 1 : -1)] ?? null;
+  const at = ROW.indexOf(current as TabName);
+  return at < 0 ? null : (ROW[at + (dx < 0 ? 1 : -1)] ?? null);
 }
 
 type Props = {
   current: string;
-  onGo: (tab: (typeof TAB_ORDER)[number]) => void;
+  onGo: (tab: TabName) => void;
   children: ReactNode;
 };
 
