@@ -1,8 +1,24 @@
 import { Tabs } from 'expo-router';
+import { Animated, Dimensions } from 'react-native';
 
 import { TabIcon } from '@/components';
 import { SwipeBetweenTabs } from '@/components/SwipeBetweenTabs';
 import { useTheme } from '@/theme';
+
+// A full-width slide: the tab you leave moves out to one side while the new one comes in from the
+// other (progress is -1 left of the active tab, 0 on it, 1 right of it).
+const slideScenes = ({ current }: { current: { progress: Animated.Value } }) => ({
+  sceneStyle: {
+    transform: [
+      {
+        translateX: current.progress.interpolate({
+          inputRange: [-1, 0, 1],
+          outputRange: [-Dimensions.get('window').width, 0, Dimensions.get('window').width],
+        }),
+      },
+    ],
+  },
+});
 
 export default function TabsLayout() {
   const { colors, typography } = useTheme();
@@ -16,6 +32,11 @@ export default function TabsLayout() {
         </SwipeBetweenTabs>
       )}
       screenOptions={{
+        // All tabs are built at start, so the first swipe to one does not wait for it to load.
+        lazy: false,
+        animation: 'shift',
+        sceneStyleInterpolator: slideScenes,
+        transitionSpec: { animation: 'timing', config: { duration: 220 } },
         headerStyle: { backgroundColor: colors.header },
         headerTintColor: colors.onHeader,
         headerShadowVisible: false,
