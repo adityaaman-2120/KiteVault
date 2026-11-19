@@ -5,20 +5,23 @@ import { TabIcon } from '@/components';
 import { SwipeBetweenTabs } from '@/components/SwipeBetweenTabs';
 import { useTheme } from '@/theme';
 
-// A full-width slide: the tab you leave moves out to one side while the new one comes in from the
-// other (progress is -1 left of the active tab, 0 on it, 1 right of it).
-const slideScenes = ({ current }: { current: { progress: Animated.Value } }) => ({
-  sceneStyle: {
-    transform: [
-      {
-        translateX: current.progress.interpolate({
-          inputRange: [-1, 0, 1],
-          outputRange: [-Dimensions.get('window').width, 0, Dimensions.get('window').width],
-        }),
-      },
-    ],
-  },
-});
+// The tab you leave slides out to one side, a little slower than the new one comes in (a parallax
+// feel), and shrinks and fades slightly; the new tab grows to full size. Progress is -1 left of the
+// active tab, 0 on it, 1 right of it.
+const slideScenes = ({ current }: { current: { progress: Animated.Value } }) => {
+  const { width } = Dimensions.get('window');
+  const at = (outputRange: number[]) =>
+    current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange });
+  return {
+    sceneStyle: {
+      opacity: at([0, 1, 0]),
+      transform: [
+        { translateX: at([-width * 0.6, 0, width * 0.6]) },
+        { scale: at([0.92, 1, 0.92]) },
+      ],
+    },
+  };
+};
 
 export default function TabsLayout() {
   const { colors, typography } = useTheme();
@@ -60,7 +63,9 @@ export default function TabsLayout() {
           title: 'Vault',
           // The Vault screen draws its own header (title, lock button and search).
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabIcon name="vault" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="vault" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -69,7 +74,9 @@ export default function TabsLayout() {
           title: 'Generator',
           // The Generator screen draws its own header panel.
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabIcon name="generator" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="generator" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -78,7 +85,9 @@ export default function TabsLayout() {
           title: 'Settings',
           // The Settings screen draws its own header panel.
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="settings" color={color} focused={focused} />
+          ),
         }}
       />
     </Tabs>

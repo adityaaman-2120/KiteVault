@@ -1,19 +1,42 @@
-import { View, type ColorValue } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, View, type ColorValue } from 'react-native';
 
-type Props = { name: 'vault' | 'generator' | 'settings'; color: ColorValue; size?: number };
+type Props = {
+  name: 'vault' | 'generator' | 'settings';
+  color: ColorValue;
+  size?: number;
+  focused?: boolean;
+};
 
 // Tiny icons drawn with plain views, so the app needs no icon library.
-export function TabIcon({ name, color, size = 24 }: Props) {
+export function TabIcon({ name, color, size = 24, focused = false }: Props) {
+  // A small spring "pop" when the tab becomes the active one.
+  const scale = useRef(new Animated.Value(focused ? 1.15 : 1)).current;
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.15 : 1,
+      friction: 4,
+      tension: 160,
+      useNativeDriver: true,
+    }).start();
+  }, [focused, scale]);
+
   return (
-    <View
+    <Animated.View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ scale }],
+      }}
     >
       {name === 'vault' ? <Lock color={color} size={size} /> : null}
       {name === 'generator' ? <Dice color={color} size={size} /> : null}
       {name === 'settings' ? <Sliders color={color} size={size} /> : null}
-    </View>
+    </Animated.View>
   );
 }
 
