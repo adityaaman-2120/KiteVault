@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 import { useVaultStore, VaultError } from '@/vault';
 
@@ -38,6 +39,17 @@ describe('CreateVaultForm validation', () => {
         'I understand that if I forget my master password, nobody can recover my data, not even Kitelux.',
       ),
     ).toBeTruthy();
+  });
+
+  test('links to the Terms and the Privacy Policy before the vault is created', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    await render(<CreateVaultForm />);
+    await fireEvent.press(screen.getByText('Terms of Service'));
+    await fireEvent.press(screen.getByText('Privacy Policy'));
+    expect(open.mock.calls.map((c) => c[0])).toEqual([
+      'https://kitelux.com/vault/terms/',
+      'https://kitelux.com/vault/privacy/',
+    ]);
   });
 
   test('shows the length rule and strength while typing a short password', async () => {

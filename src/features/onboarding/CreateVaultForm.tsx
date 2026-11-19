@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Text } from 'react-native';
 
 import { Button, Checkbox, ScreenContainer, StrengthMeter, TextField } from '@/components';
+import { LegalLinks } from '@/features/about/LegalLinks';
 import { useBiometricOfferStore } from '@/features/biometric/biometricOfferStore';
 import { useTheme } from '@/theme';
 import { useVaultStore, VaultError } from '@/vault';
@@ -75,7 +76,9 @@ export function CreateVaultForm() {
         editable={!busy}
         textContentType="newPassword"
         error={
-          submitted && errors.password ? `${errors.password} (${length}/${MIN_PASSWORD_LENGTH})` : undefined
+          submitted && errors.password
+            ? `${errors.password} (${length}/${MIN_PASSWORD_LENGTH})`
+            : undefined
         }
       />
       {password.length > 0 ? (
@@ -122,6 +125,7 @@ export function CreateVaultForm() {
         disabled={busy}
         loading={busy}
       />
+      <LegalLinks />
       {busy ? (
         <Text style={[typography.caption, { color: colors.textMuted, marginTop: -spacing.sm }]}>
           Securing your vault. This can take a few seconds.

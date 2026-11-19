@@ -712,3 +712,12 @@ Details and procedures: `docs/RELEASE_POLISH.md`.
 - **Target SDK:** the merged release manifest says 36, which meets Play's API 36 rule for after 31 Aug 2026. Release permissions are only INTERNET, ACCESS_NETWORK_STATE, CAMERA, USE_BIOMETRIC, USE_FINGERPRINT; `allowBackup` is false.
 - **Written down in `docs/PLAY_RELEASE.md`:** signing and SHA-1 plan, website sentences, store listing draft, Data safety and content rating answers, closed-test rule for new personal accounts (12 testers, 14 days), release checklist, and answers for Google's questions about Autofill, biometrics and permissions.
 - **Not verified:** 16 KB page-size support of every native library (check the first bundle in Play Console), and anything on a real device.
+
+## About, legal links and contact
+
+- **Who promises what.** The "fully offline, no account, no ads, no tracking, never contacts Kitelux" promise is made by the _app_ (About screen, welcome slides). Kitelux is the studio and has a website; its About text says "KiteVault is its product" and does not claim to be offline itself. The About screen has a short developer section with the same facts as the website (Kitelux is the trading name of Aditya Aman, Kolkata).
+- **Legal links.** Privacy Policy (`https://kitelux.com/vault/privacy/`) and Terms (`https://kitelux.com/vault/terms/`) are on the About screen and under the "Create vault" button ("By creating a vault you agree to…"). They are plain links that open the phone's browser when tapped; the app makes no request itself, so the "no network calls" rule holds. Reading them needs internet. **No extra checkbox** was added (the vault form already has the forgot-password one); a sentence with links is the common way to agree, but if a lawyer wants explicit consent, add a checkbox.
+- **Contact.** `support@kitelux.com` opens the mail app. The screen warns never to send the master password or vault contents.
+- **Website text to update by hand** (not in this repo): the Privacy Policy section 3 says exports are "for example CSV or PDF"; exports are now CSV, JSON and the encrypted `.kvault` (which is encrypted, unlike the others). Also check that "PDF" there means the recovery-key PDF.
+- **Play Store:** the same privacy URL must be entered in the store listing and the Data safety form (no data collected, none shared; the optional Drive backup and breach check should be described there).
+- Addresses live in `src/features/about/links.ts`. `https://kitelux.com/` (website button) is assumed to be the studio's home page: change it if the real address differs.

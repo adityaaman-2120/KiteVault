@@ -3,7 +3,15 @@ import * as path from 'node:path';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { AboutScreen, appVersion, PRIVACY_STATEMENT } from '../AboutScreen';
+import { Linking } from 'react-native';
+
+import {
+  AboutScreen,
+  appVersion,
+  DEVELOPER_STATEMENT,
+  OFFLINE_STATEMENT,
+  PRIVACY_STATEMENT,
+} from '../AboutScreen';
 import { EXTRA_COMPONENTS } from '../extraLicenses';
 import { LICENSE_TEXTS, LICENSES } from '../licenses.generated';
 import { LICENSE_ROWS, LicensesScreen } from '../LicensesScreen';
@@ -39,6 +47,29 @@ describe('AboutScreen', () => {
     expect(all).toMatch(/stay on this phone/);
     expect(all).toMatch(/no analytics, no tracking and no ads/);
     expect(all).toMatch(/optional/);
+  });
+
+  test('says the app is fully offline and who made it', async () => {
+    await render(<AboutScreen />);
+    expect(screen.getByText(OFFLINE_STATEMENT)).toBeTruthy();
+    expect(OFFLINE_STATEMENT).toMatch(/fully offline/);
+    expect(screen.getByText(DEVELOPER_STATEMENT)).toBeTruthy();
+    expect(DEVELOPER_STATEMENT).toMatch(/product of Kitelux/);
+  });
+
+  test('opens the privacy policy, the terms, the website and the mail app', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    await render(<AboutScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Privacy Policy' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Terms of Service' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Kitelux website' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Email support' }));
+    expect(open.mock.calls.map((c) => c[0])).toEqual([
+      'https://kitelux.com/vault/privacy/',
+      'https://kitelux.com/vault/terms/',
+      'https://kitelux.com/',
+      'mailto:support@kitelux.com',
+    ]);
   });
 
   test('opens the license list', async () => {
