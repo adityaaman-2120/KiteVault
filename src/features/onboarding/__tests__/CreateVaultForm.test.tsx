@@ -29,9 +29,9 @@ beforeEach(() => {
 });
 
 describe('CreateVaultForm validation', () => {
-  test('the button starts disabled and the warning checkbox is shown', async () => {
+  test('the button starts enabled and the warning checkbox is shown', async () => {
     await render(<CreateVaultForm />);
-    expect(submitButton()).toBeDisabled();
+    expect(submitButton()).toBeEnabled();
     expect(screen.getByRole('checkbox')).not.toBeChecked();
     expect(
       screen.getByText(
@@ -54,28 +54,29 @@ describe('CreateVaultForm validation', () => {
     expect(screen.queryByText(/\(\d+\/12\)/)).toBeNull();
   });
 
-  test('shows a mismatch message and stays disabled', async () => {
+  test('shows a mismatch message and does not submit', async () => {
     await render(<CreateVaultForm />);
     await fill(STRONG, STRONG + 'x');
     expect(screen.getByText('The passwords do not match.')).toBeTruthy();
-    expect(submitButton()).toBeDisabled();
+    await fireEvent.press(submitButton());
+    expect(create).not.toHaveBeenCalled();
   });
 
-  test('stays disabled until the warning is acknowledged', async () => {
+  test('pressing the button before the warning is acknowledged shows an error', async () => {
     await render(<CreateVaultForm />);
     await fill(STRONG, STRONG, false);
-    expect(submitButton()).toBeDisabled();
-    await fireEvent.press(screen.getByRole('checkbox'));
-    expect(submitButton()).toBeEnabled();
-    await fireEvent.press(screen.getByRole('checkbox'));
-    expect(submitButton()).toBeDisabled();
+    expect(screen.queryByText('Please confirm that you understand.')).toBeNull();
+    await fireEvent.press(submitButton());
+    expect(screen.getByText('Please confirm that you understand.')).toBeTruthy();
+    expect(create).not.toHaveBeenCalled();
   });
 
-  test('a too-short password cannot be submitted even when everything else is valid', async () => {
+  test('a too-short password shows a red error on press and is not submitted', async () => {
     await render(<CreateVaultForm />);
     await fill('short', 'short');
-    expect(submitButton()).toBeDisabled();
+    // Grey hint before pressing; after pressing it is replaced by the red field error (one match).
     await fireEvent.press(submitButton());
+    expect(screen.getByText('Use at least 12 characters. (5/12)')).toBeTruthy();
     expect(create).not.toHaveBeenCalled();
   });
 

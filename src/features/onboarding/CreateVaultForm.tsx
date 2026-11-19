@@ -31,6 +31,7 @@ export function CreateVaultForm() {
   const [confirm, setConfirm] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { valid, errors } = validateCreateVault({ password, confirm, acknowledged });
@@ -38,7 +39,12 @@ export function CreateVaultForm() {
   const length = passwordLength(password);
 
   async function submit() {
-    if (!valid || busy) return;
+    if (busy) return;
+    // The button stays tappable so an invalid form can explain itself instead of looking broken.
+    if (!valid) {
+      setSubmitted(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -68,11 +74,14 @@ export function CreateVaultForm() {
         onChangeText={setPassword}
         editable={!busy}
         textContentType="newPassword"
+        error={
+          submitted && errors.password ? `${errors.password} (${length}/${MIN_PASSWORD_LENGTH})` : undefined
+        }
       />
       {password.length > 0 ? (
         <>
           <StrengthMeter score={strength.score} label={strength.label} hint={strength.hint} />
-          {errors.password ? (
+          {errors.password && !submitted ? (
             <Text style={[typography.caption, { color: colors.textMuted }]}>
               {errors.password} ({length}/{MIN_PASSWORD_LENGTH})
             </Text>
@@ -91,14 +100,15 @@ export function CreateVaultForm() {
         onChangeText={setConfirm}
         editable={!busy}
         textContentType="newPassword"
+        error={(confirm.length > 0 || submitted) && errors.confirm ? errors.confirm : undefined}
       />
-      {confirm.length > 0 && errors.confirm ? (
-        <Text accessibilityRole="alert" style={[typography.caption, { color: colors.danger }]}>
-          {errors.confirm}
-        </Text>
-      ) : null}
 
       <Checkbox label={WARNING} checked={acknowledged} onChange={setAcknowledged} disabled={busy} />
+      {submitted && errors.acknowledged ? (
+        <Text accessibilityRole="alert" style={[typography.caption, { color: colors.danger }]}>
+          {errors.acknowledged}
+        </Text>
+      ) : null}
 
       {error ? (
         <Text accessibilityRole="alert" style={[typography.body, { color: colors.danger }]}>
@@ -109,7 +119,7 @@ export function CreateVaultForm() {
       <Button
         title={busy ? 'Creating vault…' : 'Create vault'}
         onPress={submit}
-        disabled={!valid}
+        disabled={busy}
         loading={busy}
       />
       {busy ? (
