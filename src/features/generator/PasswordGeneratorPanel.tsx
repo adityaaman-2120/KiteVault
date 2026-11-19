@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import { Button, ChoiceGroup, StrengthMeter, ToggleRow } from '@/components';
+import { lockTabSwipe, unlockTabSwipe } from '@/components/SwipeBetweenTabs';
 import { copySecret } from '@/features/clipboard/clipboardService';
 import { useTheme } from '@/theme';
 
@@ -160,6 +161,8 @@ export function PasswordGeneratorPanel({ onUse }: Props) {
               minimumTrackTintColor={colors.primary}
               maximumTrackTintColor={colors.border}
               thumbTintColor={colors.primary}
+              onSlidingStart={lockTabSwipe}
+              onSlidingComplete={unlockTabSwipe}
               onValueChange={(value: number) => changePassword({ length: Math.round(value) })}
             />
           </OptionRow>
@@ -224,6 +227,8 @@ export function PasswordGeneratorPanel({ onUse }: Props) {
               minimumTrackTintColor={colors.primary}
               maximumTrackTintColor={colors.border}
               thumbTintColor={colors.primary}
+              onSlidingStart={lockTabSwipe}
+              onSlidingComplete={unlockTabSwipe}
               onValueChange={(value: number) => changePassphrase({ words: Math.round(value) })}
             />
           </OptionRow>

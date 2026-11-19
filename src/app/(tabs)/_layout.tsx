@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 
 import { TabIcon } from '@/components';
+import { SwipeBetweenTabs } from '@/components/SwipeBetweenTabs';
 import { useTheme } from '@/theme';
 
 export default function TabsLayout() {
@@ -8,6 +9,12 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // Swipe sideways to move between the tabs.
+      screenLayout={({ route, navigation, children }) => (
+        <SwipeBetweenTabs current={route.name} onGo={(tab) => navigation.navigate(tab)}>
+          {children}
+        </SwipeBetweenTabs>
+      )}
       screenOptions={{
         headerStyle: { backgroundColor: colors.header },
         headerTintColor: colors.onHeader,
