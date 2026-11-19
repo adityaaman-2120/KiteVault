@@ -11,6 +11,7 @@ export function describeTransferError(error: unknown): string {
   }
   if (error instanceof ImportError) return IMPORT_ERROR_TEXT[error.code];
   if (error instanceof ExportError) {
+    if (error.code === 'cancelled') return 'No folder was chosen, so nothing was saved.';
     return error.code === 'sharing-unavailable'
       ? 'Sharing is not available on this phone.'
       : 'There is no vault to export.';

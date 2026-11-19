@@ -5,11 +5,12 @@ import { runWithAttemptLimit } from '@/features/lock/unlockService';
 import { loadVaultFile } from '@/storage';
 import { isWellFormedVaultFile, useVaultStore, verifyMasterPassword } from '@/vault';
 
-import { entriesToCsv, exportableEntries } from './csvExport';
+import { chromeCsvEntries, entriesToChromeCsv, entriesToCsv, exportableEntries } from './csvExport';
+import { entriesToBitwardenJson } from './jsonExport';
 
 export class ExportError extends Error {
-  readonly code: 'sharing-unavailable' | 'no-vault';
-  constructor(code: 'sharing-unavailable' | 'no-vault') {
+  readonly code: 'sharing-unavailable' | 'no-vault' | 'cancelled';
+  constructor(code: 'sharing-unavailable' | 'no-vault' | 'cancelled') {
     super(`Export error: ${code}`);
     this.name = 'ExportError';
     this.code = code;
@@ -52,21 +53,106 @@ async function shareTemporaryFile(
   }
 }
 
-// An encrypted KiteVault backup: the vault file exactly as it is stored, so it stays protected by
-// the master password (and recovery key, if there is one) it has now. Nothing is decrypted.
-// The master password is asked for again, and wrong guesses count like wrong unlock attempts.
-export async function exportEncrypted(masterPassword: string): Promise<void> {
-  await runWithAttemptLimit(() => verifyMasterPassword(masterPassword));
-  const bytes = await loadVaultFile(isWellFormedVaultFile);
-  if (!bytes) throw new ExportError('no-vault');
-  await shareTemporaryFile(`KiteVault-${today()}.kvault`, bytes, 'application/octet-stream');
+// Writes straight into a folder the user picks (Android's folder picker grants access to that one
+// folder only). The file stays there: it is the user's copy now, so nothing is deleted afterwards.
+async function saveToChosenFolder(
+  name: string,
+  content: string | Uint8Array,
+  mimeType: string,
+): Promise<string> {
+  let dir: Directory;
+  try {
+    dir = await Directory.pickDirectoryAsync();
+  } catch {
+    // The picker throws when it is closed without choosing a folder.
+    throw new ExportError('cancelled');
+  }
+  const file = dir.createFile(name, mimeType);
+  try {
+    await file.write(content);
+  } catch (e) {
+    // Do not leave a half-written file behind.
+    try {
+      file.delete();
+    } catch {
+      // Nothing more can be done.
+    }
+    throw e;
+  }
+  return file.name;
 }
 
-// A plain, UNENCRYPTED CSV of everything outside the Trash. Returns how many entries it holds.
-export async function exportPlainCsv(masterPassword: string): Promise<number> {
+// 'csv' is Bitwarden's layout; 'csv-chrome' is the simple layout Chrome, Edge and Google import.
+export type ExportFormat = 'kvault' | 'csv' | 'csv-chrome' | 'json';
+export type ExportDestination = 'folder' | 'share';
+
+// Formats that put every password in readable text.
+export const isPlainExport = (format: ExportFormat): boolean => format !== 'kvault';
+
+export type ExportResult = { fileName: string; count: number; destination: ExportDestination };
+
+// One entry point for every format and destination. The master password is asked for again, and
+// wrong guesses count like wrong unlock attempts, so a stranger holding an unlocked phone cannot
+// guess it here. .kvault is the vault file exactly as stored: nothing is decrypted, and it stays
+// protected by the master password (and recovery key) it has now.
+export async function exportVault(
+  format: ExportFormat,
+  masterPassword: string,
+  destination: ExportDestination = 'share',
+): Promise<ExportResult> {
   await runWithAttemptLimit(() => verifyMasterPassword(masterPassword));
   const data = useVaultStore.getState().data;
   if (!data) throw new ExportError('no-vault');
-  await shareTemporaryFile(`KiteVault-passwords-${today()}.csv`, entriesToCsv(data), 'text/csv');
-  return exportableEntries(data).length;
+
+  let fileName: string;
+  let content: string | Uint8Array;
+  let mimeType: string;
+  if (format === 'kvault') {
+    const bytes = await loadVaultFile(isWellFormedVaultFile);
+    if (!bytes) throw new ExportError('no-vault');
+    [fileName, content, mimeType] = [
+      `KiteVault-${today()}.kvault`,
+      bytes,
+      'application/octet-stream',
+    ];
+  } else if (format === 'csv-chrome') {
+    [fileName, content, mimeType] = [
+      `KiteVault-for-Chrome-${today()}.csv`,
+      entriesToChromeCsv(data),
+      'text/csv',
+    ];
+  } else if (format === 'csv') {
+    [fileName, content, mimeType] = [
+      `KiteVault-passwords-${today()}.csv`,
+      entriesToCsv(data),
+      'text/csv',
+    ];
+  } else {
+    [fileName, content, mimeType] = [
+      `KiteVault-passwords-${today()}.json`,
+      entriesToBitwardenJson(data),
+      'application/json',
+    ];
+  }
+
+  const count =
+    format === 'kvault'
+      ? data.entries.length
+      : format === 'csv-chrome'
+        ? chromeCsvEntries(data).length
+        : exportableEntries(data).length;
+  if (destination === 'folder') {
+    fileName = await saveToChosenFolder(fileName, content, mimeType);
+  } else {
+    await shareTemporaryFile(fileName, content, mimeType);
+  }
+  return { fileName, count, destination };
+}
+
+export const exportEncrypted = (masterPassword: string): Promise<ExportResult> =>
+  exportVault('kvault', masterPassword);
+
+// Returns how many entries the CSV holds.
+export async function exportPlainCsv(masterPassword: string): Promise<number> {
+  return (await exportVault('csv', masterPassword)).count;
 }

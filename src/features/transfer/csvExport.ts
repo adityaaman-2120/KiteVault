@@ -25,7 +25,7 @@ export const CSV_NOT_ENCRYPTED_WARNING =
 
 // The bare secret, or a full link when the code uses non-default settings, so another
 // authenticator makes the same codes.
-const totpCell = (entry: Entry): string =>
+export const totpCell = (entry: Entry): string =>
   !entry.totpSecret
     ? ''
     : entry.totpParams
@@ -61,6 +61,24 @@ function detailLines(entry: Entry): string[] {
 // The entries that would be exported: everything except what is in the Trash.
 export const exportableEntries = (data: VaultData): Entry[] =>
   data.entries.filter((entry) => !isTrashed(entry));
+
+export const CHROME_CSV_COLUMNS = ['name', 'url', 'username', 'password', 'note'] as const;
+
+// Logins only, in the layout Chrome, Edge and Google Password Manager import (they have no place
+// for notes, cards, identities, extra fields or authenticator codes, so those are left out).
+export const chromeCsvEntries = (data: VaultData): Entry[] =>
+  exportableEntries(data).filter((entry) => entry.type === 'login');
+
+export function entriesToChromeCsv(data: VaultData): string {
+  const rows = chromeCsvEntries(data).map((e) => [
+    e.title,
+    e.urls[0] ?? '',
+    e.username,
+    e.password,
+    e.notes,
+  ]);
+  return Papa.unparse({ fields: [...CHROME_CSV_COLUMNS], data: rows }, { newline: '\r\n' });
+}
 
 export function entriesToCsv(data: VaultData): string {
   const folderName = new Map(data.folders.map((f) => [f.id, f.name]));

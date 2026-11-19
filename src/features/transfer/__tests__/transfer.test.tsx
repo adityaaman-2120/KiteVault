@@ -19,7 +19,7 @@ import {
   withEntries,
 } from '@/vault/__support__/testUtils';
 
-import { exportEncrypted, exportPlainCsv, purgeExportFiles } from '../exportFiles';
+import { exportEncrypted, exportPlainCsv, exportVault, purgeExportFiles } from '../exportFiles';
 import { ExportScreen } from '../ExportScreen';
 import { classifyImport, pickImportFile, readKvault } from '../importFiles';
 import { ImportScreen } from '../ImportScreen';
@@ -136,6 +136,59 @@ describe('encrypted export (.kvault)', () => {
   });
 });
 
+describe('Chrome CSV export', () => {
+  test("has Chrome's columns, only logins, and our importer reads it back", async () => {
+    await setUpVault([
+      makeEntry({
+        id: 'e1',
+        title: 'Mail',
+        username: 'me',
+        password: SECRET,
+        urls: ['https://mail.example.com'],
+      }),
+      makeEntry({ id: 'e2', title: 'My note', type: 'note' }),
+    ]);
+    const result = await exportVault('csv-chrome', PASSWORD);
+    const text = Buffer.from(shared[0]!.bytes).toString();
+    expect(text.split('\r\n')[0]).toBe('name,url,username,password,note');
+    expect(result.count).toBe(1);
+    expect(text).not.toContain('My note');
+    const back = classifyImport(new Uint8Array(Buffer.from(text)));
+    if (back.kind !== 'plain') throw new Error('expected a plain import');
+    expect(back.parsed.format).toBe('chrome-csv');
+    expect(back.parsed.entries[0]).toMatchObject({ title: 'Mail', password: SECRET });
+  });
+});
+
+describe('plain JSON export', () => {
+  test('is Bitwarden-shaped, leaves out the Trash, and our importer reads it back', async () => {
+    await setUpVault([
+      makeEntry({ id: 'e1', title: 'Mail', username: 'me', password: SECRET, folderId: 'f1' }),
+      makeEntry({ id: 'e2', title: 'Gone', password: 'trashed-pw', deletedAt: 1 }),
+    ]);
+    await exportVault('json', PASSWORD);
+    const text = Buffer.from(shared[0]!.bytes).toString();
+    const json = JSON.parse(text);
+    expect(shared[0]!.name).toMatch(/\.json$/);
+    expect(json.encrypted).toBe(false);
+    expect(json.items).toHaveLength(1);
+    expect(json.items[0]).toMatchObject({ type: 1, name: 'Mail', folderId: 'f1' });
+    expect(json.items[0].login).toMatchObject({ username: 'me', password: SECRET });
+    expect(json.folders).toEqual([{ id: 'f1', name: 'Work' }]);
+    expect(text).not.toContain('trashed-pw');
+
+    const back = classifyImport(new Uint8Array(Buffer.from(text)));
+    if (back.kind !== 'plain') throw new Error('expected a plain import');
+    expect(back.parsed.format).toBe('bitwarden-json');
+    expect(back.parsed.entries).toHaveLength(1);
+    expect(back.parsed.entries[0]).toMatchObject({
+      title: 'Mail',
+      password: SECRET,
+      folderName: 'Work',
+    });
+  });
+});
+
 describe('plain CSV export', () => {
   test('a wrong master password writes and shares nothing', async () => {
     await expect(exportPlainCsv('wrong')).rejects.toMatchObject({ code: 'WRONG_PASSWORD' });
@@ -177,17 +230,18 @@ describe('plain CSV export', () => {
 describe('export screen', () => {
   test('the CSV option shows the strong warning and needs the master password', async () => {
     await render(<ExportScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Advanced formats' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Export as plain CSV…' }));
     expect(screen.getByText('This file is NOT encrypted')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export unencrypted CSV' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Share to another app' })).toBeDisabled();
 
     await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), 'wrong');
-    await fireEvent.press(screen.getByRole('button', { name: 'Export unencrypted CSV' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Share to another app' }));
     expect(await screen.findByText('That master password is wrong.')).toBeTruthy();
     expect(share).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), PASSWORD);
-    await fireEvent.press(screen.getByRole('button', { name: 'Export unencrypted CSV' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Share to another app' }));
     expect(await screen.findByText('Exported')).toBeTruthy();
     expect(share).toHaveBeenCalledTimes(1);
   });
@@ -197,9 +251,48 @@ describe('export screen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Export encrypted backup' }));
     expect(screen.queryByText('This file is NOT encrypted')).toBeNull();
     await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), PASSWORD);
-    await fireEvent.press(screen.getByRole('button', { name: 'Export encrypted backup' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Share to another app' }));
     expect(await screen.findByText('Exported')).toBeTruthy();
     expect(shared[0]!.name).toMatch(/\.kvault$/);
+  });
+
+  test('saving to a folder needs the password, then writes the file there', async () => {
+    const written = jest.fn();
+    const dir = {
+      createFile: jest.fn(() => ({ name: 'KiteVault.json', write: written, delete: jest.fn() })),
+    };
+    jest.spyOn(Directory, 'pickDirectoryAsync').mockResolvedValue(dir as never);
+    await render(<ExportScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Advanced formats' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Export as plain JSON…' }));
+    expect(screen.getByRole('button', { name: 'Save to a folder on this phone' })).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), PASSWORD);
+    await fireEvent.press(screen.getByRole('button', { name: 'Save to a folder on this phone' }));
+    expect(await screen.findByText('Exported')).toBeTruthy();
+    expect(dir.createFile).toHaveBeenCalledWith(
+      expect.stringMatching(/\.json$/),
+      'application/json',
+    );
+    expect(written).toHaveBeenCalledTimes(1);
+    expect(share).not.toHaveBeenCalled();
+  });
+
+  test('closing the folder picker saves nothing and says so', async () => {
+    jest.spyOn(Directory, 'pickDirectoryAsync').mockRejectedValue(new Error('cancelled'));
+    await render(<ExportScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Advanced formats' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Export as plain CSV…' }));
+    await fireEvent.changeText(screen.getByLabelText(/^Enter your master password/i), PASSWORD);
+    await fireEvent.press(screen.getByRole('button', { name: 'Save to a folder on this phone' }));
+    expect(await screen.findByText('No folder was chosen, so nothing was saved.')).toBeTruthy();
+  });
+
+  test('a wrong password never opens the folder picker', async () => {
+    const pickDir = jest.spyOn(Directory, 'pickDirectoryAsync');
+    await expect(exportVault('json', 'wrong', 'folder')).rejects.toMatchObject({
+      code: 'WRONG_PASSWORD',
+    });
+    expect(pickDir).not.toHaveBeenCalled();
   });
 });
 
