@@ -36,8 +36,21 @@ export const LetterAvatar = memo(function LetterAvatar({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: `hsl(${avatarHue(title)}, 45%, ${isDark ? 32 : 42}%)`,
+        overflow: 'hidden',
       }}
     >
+      {/* A soft light patch in the corner, so the tile is not flat. */}
+      <View
+        style={{
+          position: 'absolute',
+          top: -size * 0.35,
+          right: -size * 0.3,
+          width: size * 0.9,
+          height: size * 0.9,
+          borderRadius: size,
+          backgroundColor: 'rgba(255,255,255,0.14)',
+        }}
+      />
       <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: size * 0.45 }}>
         {avatarLetter(title)}
       </Text>

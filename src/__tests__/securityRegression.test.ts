@@ -122,6 +122,8 @@ describe('app configuration', () => {
         'android.permission.READ_MEDIA_IMAGES',
         'android.permission.SYSTEM_ALERT_WINDOW',
         'android.permission.VIBRATE',
+        // Added by expo-sensors (for its step counter); shake-to-lock only reads the accelerometer.
+        'android.permission.ACTIVITY_RECOGNITION',
       ]),
     );
   });

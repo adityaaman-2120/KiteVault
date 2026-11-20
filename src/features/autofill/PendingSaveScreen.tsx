@@ -9,7 +9,7 @@ import {
   CardGroup,
   Chip,
   EyeButton,
-  LetterAvatar,
+  EntryIcon,
   ScreenContainer,
   TextField,
 } from '@/components';
@@ -164,7 +164,16 @@ function PendingSaveCard({
     <ScreenContainer scroll>
       {/* Who it is for: the site or app, big, so it is the first thing read. */}
       <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm }}>
-        <LetterAvatar title={suggestedTitle(save.origin)} size={64} />
+        <EntryIcon
+          title={suggestedTitle(save.origin)}
+          urls={save.origin.kind === 'web' ? [save.origin.host] : []}
+          appLinks={
+            save.origin.kind === 'app'
+              ? [{ packageName: save.origin.packageName, certSha256: save.origin.certSha256 }]
+              : []
+          }
+          size={64}
+        />
         <Text style={[typography.label, { color: colors.textMuted }]}>Save to KiteVault?</Text>
         <Text
           accessibilityLabel={`Saved for ${originText(save.origin)}`}

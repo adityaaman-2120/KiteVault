@@ -3,6 +3,8 @@
 export type AppSettings = {
   backgroundLockSeconds: number; // 0 = immediately
   inactivityLockMinutes: number;
+  // Shaking the phone locks the vault. Reads only the motion sensor; nothing is stored or sent.
+  shakeToLock: boolean;
   // True once the user chose "Don't ask again" on the biometric offer.
   biometricPromptDismissed: boolean;
   // Lets screenshots / screen recording / the recent-apps preview show the unlocked vault.
@@ -53,6 +55,7 @@ export const CLIPBOARD_CLEAR_OPTIONS = [
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   backgroundLockSeconds: 30,
   inactivityLockMinutes: 5,
+  shakeToLock: true,
   biometricPromptDismissed: false,
   allowScreenshots: false,
   clipboardClearSeconds: 30,
@@ -86,6 +89,8 @@ export function parseAppSettings(raw: unknown): AppSettings {
     inactivityLockMinutes: inactivity
       ? (value.inactivityLockMinutes as number)
       : DEFAULT_APP_SETTINGS.inactivityLockMinutes,
+    // On unless the user turned it off (also for settings files saved before this existed).
+    shakeToLock: value.shakeToLock !== false,
     biometricPromptDismissed: value.biometricPromptDismissed === true,
     allowScreenshots: value.allowScreenshots === true,
     clipboardClearSeconds: clipboard

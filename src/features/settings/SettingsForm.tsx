@@ -10,6 +10,7 @@ import {
   ScreenContainer,
   ScreenHeader,
   SectionHeader,
+  ToggleRow,
 } from '@/components';
 import { appVersion } from '@/features/about/AboutScreen';
 import { AutofillCard } from '@/features/autofill/AutofillCard';
@@ -43,6 +44,7 @@ export function SettingsForm() {
   const { colors, typography } = useTheme();
   const backgroundLockSeconds = useSettingsStore((s) => s.backgroundLockSeconds);
   const inactivityLockMinutes = useSettingsStore((s) => s.inactivityLockMinutes);
+  const shakeToLock = useSettingsStore((s) => s.shakeToLock);
   const update = useSettingsStore((s) => s.update);
   const lock = useVaultStore((s) => s.lock);
 
@@ -75,6 +77,12 @@ export function SettingsForm() {
               options={INACTIVITY_LOCK_OPTIONS}
               value={inactivityLockMinutes}
               onChange={(value) => void update({ inactivityLockMinutes: value })}
+            />
+            <ToggleRow
+              label="Shake to lock"
+              description="Shake the phone firmly to lock the vault at once. It reads only the motion sensor; nothing is saved or sent."
+              value={shakeToLock}
+              onChange={(value) => void update({ shakeToLock: value })}
             />
             <Text style={[typography.caption, { color: colors.textMuted }]}>
               Closing the app always locks the vault.

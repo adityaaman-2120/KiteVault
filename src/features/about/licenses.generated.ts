@@ -143,6 +143,13 @@ export const LICENSES: LicenseEntry[] = [
     "text": 3
   },
   {
+    "name": "expo-sensors",
+    "version": "58.0.5",
+    "license": "MIT",
+    "url": "https://github.com/expo/expo",
+    "text": 3
+  },
+  {
     "name": "expo-sharing",
     "version": "58.0.20",
     "license": "MIT",

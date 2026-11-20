@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
-import { Alert, Linking, Text, View } from 'react-native';
+import { Children, type ReactNode } from 'react';
+import { Alert, Linking, Pressable, Text, View } from 'react-native';
 
-import { Button, Card, EmptyState, LetterAvatar, ScreenContainer } from '@/components';
+import { Button, Card, EmptyState, EntryIcon, ScreenContainer } from '@/components';
+import { hostOfAddress } from '@/features/icons/brandMatch';
 import { useTheme } from '@/theme';
 import { useVaultStore, type Entry } from '@/vault';
 
@@ -9,6 +11,7 @@ import { TotpCode } from '@/features/totp/TotpCode';
 import { removeEntryTotp } from '@/features/totp/totpActions';
 import { useNow } from '@/features/totp/useNow';
 
+import { CardPreview } from './CardPreview';
 import { DetailRow } from './DetailRow';
 import { describeSaveError, moveToTrash, setFavorite } from './entryActions';
 import { formatDate, toOpenableUrl } from './format';
@@ -27,10 +30,12 @@ async function openWebsite(raw: string) {
   }
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// A heading above one rounded box; the rows inside are told apart by thin lines.
+function Section({ title, children }: { title: string; children: ReactNode }) {
   const { colors, spacing, typography } = useTheme();
+  const rows = Children.toArray(children);
   return (
-    <Card>
+    <View style={{ gap: spacing.sm }}>
       <Text
         style={[
           typography.caption,
@@ -39,13 +44,80 @@ function Section({ title, children }: { title: string; children: React.ReactNode
             fontWeight: '700',
             textTransform: 'uppercase',
             letterSpacing: 1,
+            paddingHorizontal: spacing.xs,
           },
         ]}
       >
         {title}
       </Text>
-      <View style={{ gap: spacing.lg }}>{children}</View>
-    </Card>
+      <Card flush>
+        {rows.map((row, index) => (
+          <View
+            key={index}
+            style={index > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : null}
+          >
+            {row}
+          </View>
+        ))}
+      </Card>
+    </View>
+  );
+}
+
+// A round-cornered button with a symbol over a short word. `name` is the full spoken name.
+function ActionTile({
+  symbol,
+  label,
+  name,
+  onPress,
+  color,
+  active = false,
+}: {
+  symbol: string;
+  label: string;
+  name: string;
+  onPress: () => void;
+  color?: string;
+  active?: boolean;
+}) {
+  const { colors, radius, spacing, typography } = useTheme();
+  const tint = color ?? (active ? colors.accent : colors.primary);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={name}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: 64,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        borderRadius: radius.md,
+        backgroundColor: colors.primarySoft,
+        opacity: pressed ? 0.7 : 1,
+        paddingVertical: spacing.sm,
+      })}
+    >
+      <Text style={{ fontSize: 20, lineHeight: 24, color: tint }}>{symbol}</Text>
+      <Text style={[typography.label, { color: tint, fontWeight: '600' }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Chip({ text }: { text: string }) {
+  const { colors, spacing, typography } = useTheme();
+  return (
+    <View
+      style={{
+        backgroundColor: colors.primarySoft,
+        borderRadius: 999,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 4,
+      }}
+    >
+      <Text style={[typography.label, { color: colors.primary }]}>{text}</Text>
+    </View>
   );
 }
 
@@ -56,6 +128,8 @@ export function EntryDetailScreen({ id }: { id: string }) {
   const folderName = useVaultStore((s) =>
     entry?.folderId ? s.data?.folders.find((f) => f.id === entry.folderId)?.name : undefined,
   );
+
+  const site = entry?.urls[0] ? hostOfAddress(entry.urls[0])?.replace(/^www\./, '') : undefined;
 
   if (!entry || entry.deletedAt !== undefined) {
     return (
@@ -93,16 +167,64 @@ export function EntryDetailScreen({ id }: { id: string }) {
   return (
     <ScreenContainer scroll>
       <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md }}>
-        <LetterAvatar title={entry.title} size={76} />
+        <EntryIcon
+          title={entry.title}
+          type={entry.type}
+          urls={entry.urls}
+          appLinks={entry.appLinks}
+          size={84}
+        />
         <Text style={[typography.title, { color: colors.text, textAlign: 'center' }]}>
           {entry.title}
         </Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
-          {typeLabel(entry.type)}
-          {folderName ? ` · ${folderName}` : ''}
-          {entry.favorite ? ' · ★ Favorite' : ''}
-        </Text>
+        {site ? (
+          <Text style={[typography.body, { color: colors.textMuted }]} numberOfLines={1}>
+            {site}
+          </Text>
+        ) : null}
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: spacing.sm,
+          }}
+        >
+          <Chip text={typeLabel(entry.type)} />
+          {folderName ? <Chip text={folderName} /> : null}
+        </View>
       </View>
+
+      <View style={{ flexDirection: 'row', gap: spacing.md }}>
+        <ActionTile
+          symbol="✎"
+          label="Edit"
+          name="Edit"
+          onPress={() => router.push(`/entry/edit/${entry.id}`)}
+        />
+        <ActionTile
+          symbol={entry.favorite ? '★' : '☆'}
+          label="Favorite"
+          name={entry.favorite ? 'Remove from favorites' : 'Add to favorites'}
+          active={entry.favorite}
+          onPress={toggleFavorite}
+        />
+        <ActionTile
+          symbol="🗑"
+          label="Trash"
+          name="Move to Trash"
+          color={colors.danger}
+          onPress={confirmDelete}
+        />
+      </View>
+
+      {entry.type === 'card' && entry.card ? (
+        <CardPreview
+          holder={entry.card.holder}
+          number={entry.card.number}
+          expiry={entry.card.expiry}
+        />
+      ) : null}
 
       <TypeFields entry={entry} />
 
@@ -110,7 +232,7 @@ export function EntryDetailScreen({ id }: { id: string }) {
 
       {entry.notes ? (
         <Section title="Notes">
-          <DetailRow label="Notes" value={entry.notes} />
+          <DetailRow label="Notes" value={entry.notes} hideLabel />
         </Section>
       ) : null}
 
@@ -144,14 +266,6 @@ export function EntryDetailScreen({ id }: { id: string }) {
         <DetailRow label="Created" value={formatDate(entry.createdAt)} copyable={false} />
         <DetailRow label="Updated" value={formatDate(entry.updatedAt)} copyable={false} />
       </Section>
-
-      <Button title="Edit" onPress={() => router.push(`/entry/edit/${entry.id}`)} />
-      <Button
-        title={entry.favorite ? 'Remove from favorites' : 'Add to favorites'}
-        variant="secondary"
-        onPress={toggleFavorite}
-      />
-      <Button title="Move to Trash" variant="danger" onPress={confirmDelete} />
     </ScreenContainer>
   );
 }

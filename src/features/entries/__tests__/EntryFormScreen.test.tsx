@@ -209,7 +209,7 @@ describe('validation', () => {
     await choose('Card');
     await type('Title', 'Visa');
     await type('Card number', '123');
-    await type('Expiry (MM/YY)', '99/99');
+    await type('Expiry (MM/YY)', '09'); // still missing the year
     await save();
     expect(await screen.findByText('Card numbers have 12 to 19 digits.')).toBeTruthy();
     expect(screen.getByText('Use MM/YY, for example 09/28.')).toBeTruthy();

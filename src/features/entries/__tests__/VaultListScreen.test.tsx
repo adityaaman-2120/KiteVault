@@ -42,13 +42,17 @@ beforeEach(() => {
   showInStore(sample, folders);
 });
 
-test('lists entries with a letter avatar, favorites first, and hides the trash', async () => {
+test('lists entries with an icon each, favorites first, and hides the trash', async () => {
   await render(<VaultListScreen />);
   expect(rowNames()[0]).toMatch(/^Bank,/);
   expect(screen.getByText('GitHub')).toBeTruthy();
-  // The letter avatar is hidden from screen readers, so look for hidden elements too.
-  expect(screen.getByText('B', { includeHiddenElements: true })).toBeTruthy();
-  expect(screen.getByText('W', { includeHiddenElements: true })).toBeTruthy();
+  // The icons are hidden from screen readers, so look for hidden elements too.
+  const hidden = { includeHiddenElements: true } as const;
+  // An unknown login: its letter. A known service (GitHub): its logo. A note: a symbol, no letter.
+  expect(screen.getByText('B', hidden)).toBeTruthy();
+  expect(screen.getAllByTestId('entry-icon-logo', hidden)).toHaveLength(1);
+  expect(screen.queryByText('W', hidden)).toBeNull();
+  expect(screen.getAllByTestId('entry-icon', hidden)).toHaveLength(2); // GitHub and the note
   expect(screen.queryByText('Old thing')).toBeNull();
   expect(screen.getByRole('button', { name: 'Trash (1)' })).toBeTruthy();
 });

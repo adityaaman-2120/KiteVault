@@ -4,10 +4,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
+import { DialogHost } from '@/components/dialog/DialogHost';
+import { ToastHost } from '@/components/dialog/ToastHost';
+import { clearDialogs } from '@/components/dialog/dialogQueue';
 import { startAutoBackup } from '@/features/backup/autoBackup';
 import { usePendingSaveWatcher } from '@/features/autofill/usePendingSaveWatcher';
 import { purgeExportFiles } from '@/features/transfer/exportFiles';
 import { useAutoLock } from '@/features/lock/useAutoLock';
+import { useShakeToLock } from '@/features/lock/useShakeToLock';
 import {
   protectScreenCaptureAtStartup,
   useScreenProtection,
@@ -33,6 +37,7 @@ export default function RootLayout() {
   const previousStatus = useRef(status);
 
   useAutoLock();
+  useShakeToLock();
   usePendingSaveWatcher(ready && status === 'unlocked');
   useScreenProtection();
 
@@ -51,6 +56,7 @@ export default function RootLayout() {
   // Move to the right screen when the state changes: locked (button, timeout, background) goes to
   // the unlock screen, and an erased vault goes back to the welcome screen.
   useEffect(() => {
+    if (previousStatus.current === 'unlocked' && status !== 'unlocked') clearDialogs();
     if (ready && previousStatus.current === 'unlocked' && status === 'locked') {
       router.replace('/unlock');
     }
@@ -73,6 +79,7 @@ export default function RootLayout() {
       <>
         <StatusBar style="light" />
         <KiteVaultSplash onFinish={() => setSplashDone(true)} />
+        <DialogHost />
       </>
     );
   }
@@ -82,6 +89,8 @@ export default function RootLayout() {
     <View style={{ flex: 1 }} onTouchStart={markActivity}>
       <StatusBar style="auto" />
       <RootWarningBanner />
+      <DialogHost />
+      <ToastHost />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.header },

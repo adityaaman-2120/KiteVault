@@ -43,7 +43,14 @@ export function EmptyState({ title, message }: Props) {
         />
         <View style={{ width: 36, height: 26, borderRadius: 8, backgroundColor: colors.primary }} />
       </View>
-      <Text style={[typography.heading, { color: colors.text }]}>{title}</Text>
+      <Text
+        style={[
+          typography.heading,
+          { color: colors.text, alignSelf: 'stretch', textAlign: 'center' },
+        ]}
+      >
+        {title}
+      </Text>
       {message ? (
         <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>
           {message}

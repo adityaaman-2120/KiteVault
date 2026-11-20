@@ -721,3 +721,41 @@ Details and procedures: `docs/RELEASE_POLISH.md`.
 - **Website text to update by hand** (not in this repo): the Privacy Policy section 3 says exports are "for example CSV or PDF"; exports are now CSV, JSON and the encrypted `.kvault` (which is encrypted, unlike the others). Also check that "PDF" there means the recovery-key PDF.
 - **Play Store:** the same privacy URL must be entered in the store listing and the Data safety form (no data collected, none shared; the optional Drive backup and breach check should be described there).
 - Addresses live in `src/features/about/links.ts`. `https://kitelux.com/` (website button) is assumed to be the studio's home page: change it if the real address differs.
+
+## Shake to lock
+
+- **Library.** `expo-sensors` (`Accelerometer` only), installed with `expo install`. It is native code, so **a new development build is needed**. It makes no network requests and the readings are never stored, logged or sent.
+- **Permission.** `expo-sensors` adds `ACTIVITY_RECOGNITION` to the manifest for its step counter, which this app does not use. It is listed in `blockedPermissions` in `app.json` (and in the security regression test). **Not yet checked in a built manifest.** Reading the accelerometer at this rate needs no permission.
+- **When it listens.** Only while the vault is unlocked, the app is on screen and the setting is on; it stops when the app goes to the background or the vault locks, so it costs no battery otherwise.
+- **What counts as a shake.** Three separate hard jolts (total pull more than 1.6 g away from the resting 1 g) within 1.2 s, at least 130 ms apart; then a 2 s pause. Walking, a bump on a table and a single drop do not qualify. The numbers are constants in `shakeDetector.ts` and **have not been tuned on a real phone**: too easy or too hard to trigger means changing `JOLT_G`.
+- **Setting.** Settings > Security > Auto-lock > "Shake to lock", **on by default** (also for settings files saved before it existed). A shake can only ever lock, never unlock, so a false trigger is annoying but not unsafe.
+- Locking uses the same `lock()` as the Lock button and the timeouts, so the key and decrypted data are wiped the same way.
+
+## Entry icons (offline)
+
+- **Rule.** Icons are never fetched. Showing a site's favicon would send the site names to another server, which breaks "no network calls" (CLAUDE.md rule 3) and the privacy promise. Everything is matched on the phone.
+- **What shows beside an entry** (`EntryIcon`): (1) a known service (by web address, by linked Android app, or by an exact title) gets its logo on a tile in the brand's colour; (2) a known service whose logo is not in the set gets its first letter on its brand-coloured tile; (3) a note, card or identity gets a drawn symbol on its own colour (amber, teal, violet); (4) any other login keeps the letter tile (now with a soft light patch) with a colour taken from the title.
+- **Logos.** 92 glyphs from Simple Icons (CC0), rendered once to 96 px white PNGs (178 KB) and committed in `assets/brands/`; 22 more services are colour-only. No new library and no new native code, so **no new build is needed**. The list is `scripts/brand-list.js`; regenerate with `BRAND_TOOLS=<folder with simple-icons and @resvg/resvg-js> npm run brand-icons`, which rewrites the PNGs and the two `src/features/icons/*.generated.ts` files. `simple-icons`/`resvg` are build-time tools kept out of `package.json`.
+- **Gaps found.** Simple Icons has no logo for Amazon, LinkedIn, Flipkart, Microsoft, Adobe, Slack, Yahoo, OpenAI, Walmart, Booking.com and some others (removed at their owners' request); those use the colour tile with a letter. Brand colours for them were written from memory and are not checked against the owners' style guides.
+- **Matching rules.** A parent address covers its subdomains (`amazon.in` covers `www.amazon.in`); the longest listed address wins (`mail.google.com` is Gmail, `google.com` is Google); look-alikes (`github.com.evil.example`, `notgithub.com`) never match; hosting domains shared by many owners (`herokuapp.com`, `github.io`, `vercel.app`) are never listed. Titles match only exactly (ignoring case and punctuation) and only when 3+ characters, so "My Amazon account" or "X" pick nothing. A logo is cosmetic: it is never used to decide autofill.
+- **Not covered:** many Indian banks and services (SBI, IRCTC, Hotstar, Meesho, CRED, ...) because there is no glyph and no colour I could confirm. Add them to `brand-list.js`.
+- **Trademark.** Logos are shown only to identify the service; attribution and a no-endorsement note are in the Licenses screen. Not legal advice; check the store's rules before release.
+- **Not verified on a device:** how the tiles look on the dark and light themes, and the tint colour on real hardware.
+
+## Entry details screen (look)
+
+- Header: large icon, title, website host, chips for kind and folder. Edit / Favorite / Trash are three tiles under it instead of three stacked buttons (same spoken names as before).
+- Fields sit in one rounded box per section, one row each, with eye and copy icons on the right of the row.
+- A revealed password uses a fixed-width font so 0/O and l/1 can be told apart.
+- Cards get a picture of the card. It is decoration (hidden from screen readers) and shows only the last four digits; the full number stays behind the eye in the rows.
+
+## Messages (dialogs)
+
+- Every `Alert.alert` in the app is drawn by our own dialog (`src/components/dialog`) instead of the grey system box: icon, title, message, pill buttons (Cancel first, destructive in red).
+- `DialogHost` is mounted once in the root layout and replaces `Alert.alert` while mounted, so no call site changed and tests that spy on `Alert.alert` still work.
+- It is a bottom sheet that rises like the Add popup: icon tile, title, message, full-width pill buttons (main action first, Cancel last, destructive in red).
+- The Android back button and a tap on the dimmed area act as Cancel (or press the only button). With several non-cancel buttons they do nothing, so nothing is chosen by accident.
+- When the vault locks, open messages are dropped without pressing any button, so a message naming an entry never stays over the unlock screen.
+- Dialog text is never logged.
+- The short "Copied, clears in 30 s" message (`ToastAndroid.show`) is drawn the same way by `ToastHost`: a small card with a green tick, taking over `ToastAndroid.show` while mounted. `DialogHost` is also mounted during the launch animation, so no message can fall back to the system box.
+- Not restyled, because Android draws them: the fingerprint prompt, the share sheet, file and folder pickers, permission prompts.

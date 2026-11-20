@@ -15,7 +15,7 @@ import {
   Button,
   ChoiceGroup,
   EmptyState,
-  LetterAvatar,
+  EntryIcon,
   ScreenContainer,
   TextAction,
   TextField,
@@ -26,6 +26,7 @@ import { useVaultStore, type EntryType } from '@/vault';
 
 import { PasswordGeneratorPanel } from '@/features/generator/PasswordGeneratorPanel';
 
+import { formatExpiry } from './cardFormat';
 import { describeSaveError, saveEntryFromForm } from './entryActions';
 import { emptyForm, entryFormSchema, entryToForm, type EntryFormValues } from './entrySchema';
 import { ENTRY_TYPES, newId } from './model';
@@ -68,9 +69,9 @@ const TYPE_ICONS: Record<EntryType, string> = {
 };
 
 // The first letter of the title once there is one; until then the type's icon (never a "?").
-function TypeBadge({ type, title }: { type: EntryType; title: string }) {
+function TypeBadge({ type, title, urls }: { type: EntryType; title: string; urls: string[] }) {
   const { colors, radius } = useTheme();
-  if (title.trim() !== '') return <LetterAvatar title={title} size={48} />;
+  if (title.trim() !== '') return <EntryIcon title={title} type={type} urls={urls} size={48} />;
   return (
     <View
       accessibilityElementsHidden
@@ -138,6 +139,7 @@ export function EntryFormScreen({ id, initialType }: { id?: string; initialType?
   const customFields = useFieldArray({ control, name: 'customFields' });
   const type = useWatch({ control, name: 'type' });
   const title = useWatch({ control, name: 'title' });
+  const urlValues = useWatch({ control, name: 'urls' });
   const customFieldValues = useWatch({ control, name: 'customFields' });
 
   if (id && !existing) {
@@ -177,7 +179,7 @@ export function EntryFormScreen({ id, initialType }: { id?: string; initialType?
         showsVerticalScrollIndicator={false}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <TypeBadge type={type} title={title} />
+          <TypeBadge type={type} title={title} urls={(urlValues ?? []).map((u) => u.value)} />
           <View style={{ flex: 1 }}>
             <Text
               accessibilityRole="header"
@@ -271,11 +273,21 @@ export function EntryFormScreen({ id, initialType }: { id?: string; initialType?
             {/* Expiry and security code are short, so they share a row. */}
             <View style={{ flexDirection: 'row', gap: spacing.md }}>
               <View style={{ flex: 1 }}>
-                <FormTextField
+                <Controller
                   control={control}
                   name="card.expiry"
-                  label="Expiry (MM/YY)"
-                  placeholder="09/28"
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      label="Expiry (MM/YY)"
+                      placeholder="09/28"
+                      keyboardType="number-pad"
+                      maxLength={5}
+                      value={field.value}
+                      onChangeText={(text) => field.onChange(formatExpiry(field.value, text))}
+                      onBlur={field.onBlur}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
               </View>
               <View style={{ flex: 1 }}>

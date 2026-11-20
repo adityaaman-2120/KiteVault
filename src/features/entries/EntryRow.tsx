@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { PixelRatio, Pressable, Text, View } from 'react-native';
 
-import { LetterAvatar } from '@/components';
+import { EntryIcon } from '@/components';
 import { useTheme } from '@/theme';
 import type { Entry } from '@/vault';
 
@@ -52,7 +52,13 @@ export const EntryRow = memo(function EntryRow({ entry, folderName, onOpen }: Pr
         isDark ? null : elevation.card,
       ]}
     >
-      <LetterAvatar title={entry.title} size={46} />
+      <EntryIcon
+        title={entry.title}
+        type={entry.type}
+        urls={entry.urls}
+        appLinks={entry.appLinks}
+        size={46}
+      />
       <View style={{ flex: 1 }}>
         <Text
           numberOfLines={1}

@@ -8,6 +8,16 @@ export type ExtraComponent = {
 
 export const EXTRA_COMPONENTS: ExtraComponent[] = [
   {
+    name: 'Simple Icons (brand logos on entry tiles)',
+    license: 'CC0-1.0',
+    url: 'https://simpleicons.org',
+    note:
+      'The logo shapes shown beside logins for well-known services, drawn offline from images ' +
+      'inside the app (nothing is downloaded). The icon set is public domain (CC0). The logos ' +
+      'themselves are trademarks of their owners and are shown only to identify the service; ' +
+      'KiteVault is not affiliated with or endorsed by any of them.',
+  },
+  {
     name: 'EFF Large Wordlist for Passphrases',
     license: 'CC BY 3.0 US',
     url: 'https://www.eff.org/dice',

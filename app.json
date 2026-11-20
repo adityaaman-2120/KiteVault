@@ -24,7 +24,8 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.ACTIVITY_RECOGNITION"
       ],
       "permissions": [
         "android.permission.CAMERA"

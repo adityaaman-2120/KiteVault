@@ -93,6 +93,7 @@ describe('useSettingsStore', () => {
       'breachCheckEnabled',
       'clipboardClearSeconds',
       'inactivityLockMinutes',
+      'shakeToLock',
     ]);
   });
 

@@ -4,7 +4,7 @@ import { Alert, FlatList, Image, Pressable, ScrollView, Text, View } from 'react
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chip, EdgeFade, EmptyState, SegmentedControl } from '@/components';
+import { Chip, EdgeFade, SegmentedControl } from '@/components';
 import { BiometricOfferSheet } from '@/features/biometric/BiometricOfferSheet';
 import { LockButton } from '@/features/lock/LockButton';
 import { useTheme } from '@/theme';
@@ -22,6 +22,7 @@ import { AddEntrySheet } from './AddEntrySheet';
 import { FolderTrashButtons } from './FolderTrashButtons';
 import { EntryRow, ROW_GAP, rowHeight } from './EntryRow';
 import { ENTRY_TYPES, isTrashed } from './model';
+import { NoResults } from './NoResults';
 import { SearchBar } from './SearchBar';
 import { filterEntries, sortEntries } from './search';
 
@@ -286,24 +287,9 @@ export function VaultListScreen() {
         ) : null}
 
         {active.length === 0 ? (
-          <EmptyState
-            title="No entries yet"
-            message="Tap the + button to add your first password."
-          />
+          <NoResults kind="empty" onAction={() => setAdding(true)} />
         ) : visible.length === 0 ? (
-          <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
-            <EmptyState
-              title={onlyAuthenticator ? 'No codes' : 'No matches'}
-              message={
-                onlyAuthenticator
-                  ? 'No entry has a 2FA code yet. Open an entry and choose Add 2FA.'
-                  : 'Nothing fits your search and filters.'
-              }
-            />
-            {filtering ? (
-              <Button title="Clear search and filters" variant="secondary" onPress={clearFilters} />
-            ) : null}
-          </View>
+          <NoResults kind={onlyAuthenticator ? 'codes' : 'matches'} onAction={clearFilters} />
         ) : authenticatorOnly ? (
           <AuthenticatorList entries={visible} onOpen={open} />
         ) : (
